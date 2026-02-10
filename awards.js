@@ -13,16 +13,18 @@ const AWARDS = [
         calculate: (data) => {
             const { playerStats } = data;
             let maxWins = 0;
-            let winner = null;
+            let winners = [];
             
             for (const [player, stats] of Object.entries(playerStats)) {
                 if (stats.wins > maxWins) {
                     maxWins = stats.wins;
-                    winner = player;
+                    winners = [player];
+                } else if (stats.wins === maxWins && maxWins > 0) {
+                    winners.push(player);
                 }
             }
             
-            return { winner, stat: `${maxWins} wins` };
+            return { winner: winners.join(' & ') || null, stat: `${maxWins} wins` };
         }
     },
     {
@@ -33,17 +35,19 @@ const AWARDS = [
         calculate: (data) => {
             const { playerStats } = data;
             let maxTypes = 0;
-            let winner = null;
+            let winners = [];
             
             for (const [player, stats] of Object.entries(playerStats)) {
                 const uniqueWins = new Set(stats.gamesWon).size;
                 if (uniqueWins > maxTypes) {
                     maxTypes = uniqueWins;
-                    winner = player;
+                    winners = [player];
+                } else if (uniqueWins === maxTypes && maxTypes > 0) {
+                    winners.push(player);
                 }
             }
             
-            return { winner, stat: `${maxTypes} different games` };
+            return { winner: winners.join(' & ') || null, stat: `${maxTypes} different games` };
         }
     },
     {
@@ -54,7 +58,7 @@ const AWARDS = [
         calculate: (data) => {
             const { playerStats } = data;
             let maxRate = 0;
-            let winner = null;
+            let winners = [];
             const minGames = 5;
             
             for (const [player, stats] of Object.entries(playerStats)) {
@@ -62,14 +66,16 @@ const AWARDS = [
                     const rate = stats.wins / stats.gamesPlayed;
                     if (rate > maxRate) {
                         maxRate = rate;
-                        winner = player;
+                        winners = [player];
+                    } else if (rate === maxRate && maxRate > 0) {
+                        winners.push(player);
                     }
                 }
             }
             
             return { 
-                winner, 
-                stat: winner ? `${(maxRate * 100).toFixed(1)}% win rate` : 'N/A'
+                winner: winners.join(' & ') || null, 
+                stat: winners.length > 0 ? `${(maxRate * 100).toFixed(1)}% win rate` : 'N/A'
             };
         }
     },
@@ -81,16 +87,18 @@ const AWARDS = [
         calculate: (data) => {
             const { playerStats } = data;
             let maxGames = 0;
-            let winner = null;
+            let winners = [];
             
             for (const [player, stats] of Object.entries(playerStats)) {
                 if (stats.gamesPlayed > maxGames) {
                     maxGames = stats.gamesPlayed;
-                    winner = player;
+                    winners = [player];
+                } else if (stats.gamesPlayed === maxGames && maxGames > 0) {
+                    winners.push(player);
                 }
             }
             
-            return { winner, stat: `${maxGames} games played` };
+            return { winner: winners.join(' & ') || null, stat: `${maxGames} games played` };
         }
     },
     {
@@ -101,8 +109,8 @@ const AWARDS = [
         calculate: (data) => {
             const { playerGameStats } = data;
             let maxRate = 0;
-            let winner = null;
-            let bestGame = null;
+            let winners = [];
+            let bestGames = [];
             const minPlays = 3;
             
             for (const [player, gameStats] of Object.entries(playerGameStats)) {
@@ -111,16 +119,24 @@ const AWARDS = [
                         const rate = stats.wins / stats.played;
                         if (rate > maxRate) {
                             maxRate = rate;
-                            winner = player;
-                            bestGame = game;
+                            winners = [player];
+                            bestGames = [game];
+                        } else if (rate === maxRate && maxRate > 0) {
+                            winners.push(player);
+                            bestGames.push(game);
                         }
                     }
                 }
             }
             
+            // Create display string showing each winner with their game
+            const statDisplay = winners.length > 0 
+                ? `${(maxRate * 100).toFixed(0)}% in ${[...new Set(bestGames)].join('/')}`
+                : 'N/A';
+            
             return { 
-                winner, 
-                stat: winner ? `${(maxRate * 100).toFixed(0)}% in ${bestGame}` : 'N/A'
+                winner: [...new Set(winners)].join(' & ') || null, 
+                stat: statDisplay
             };
         }
     },
@@ -132,44 +148,67 @@ const AWARDS = [
         calculate: (data) => {
             const { playerStats } = data;
             let maxStreak = 0;
-            let winner = null;
+            let winners = [];
             
             for (const [player, stats] of Object.entries(playerStats)) {
                 if (stats.longestStreak > maxStreak) {
                     maxStreak = stats.longestStreak;
-                    winner = player;
+                    winners = [player];
+                } else if (stats.longestStreak === maxStreak && maxStreak > 0) {
+                    winners.push(player);
                 }
             }
             
-            return { winner, stat: `${maxStreak} wins in a row` };
+            return { winner: winners.join(' & ') || null, stat: `${maxStreak} wins in a row` };
         }
     },
     {
-        id: 'underdog',
-        name: 'The Underdog',
-        icon: '💪',
-        description: 'Most wins in games with 4+ players',
+        id: 'streakbreaker',
+        name: 'The Heartbreaker',
+        icon: '💔',
+        description: 'Most wins that ended another player\'s streak (2+ wins)',
         calculate: (data) => {
-            const { games, playerStats } = data;
-            const bigGameWins = {};
+            const { games, players } = data;
+            const streakBreaks = {};
+            
+            // Track each player's current streak as we iterate through games
+            const currentStreaks = {};
+            players.forEach(p => currentStreaks[p] = 0);
             
             games.forEach(game => {
-                if (game.players && game.players.length >= 4 && game.winner) {
-                    bigGameWins[game.winner] = (bigGameWins[game.winner] || 0) + 1;
-                }
+                if (!game.winner || !game.players) return;
+                
+                // Check if this win broke someone's streak (2+ wins)
+                game.players.forEach(player => {
+                    if (player !== game.winner && currentStreaks[player] >= 2) {
+                        // This winner broke someone's streak!
+                        streakBreaks[game.winner] = (streakBreaks[game.winner] || 0) + 1;
+                    }
+                });
+                
+                // Update streaks: winner gets +1, all other participants reset to 0
+                game.players.forEach(player => {
+                    if (player === game.winner) {
+                        currentStreaks[player] = (currentStreaks[player] || 0) + 1;
+                    } else {
+                        currentStreaks[player] = 0;
+                    }
+                });
             });
             
-            let maxWins = 0;
-            let winner = null;
+            let maxBreaks = 0;
+            let winners = [];
             
-            for (const [player, wins] of Object.entries(bigGameWins)) {
-                if (wins > maxWins) {
-                    maxWins = wins;
-                    winner = player;
+            for (const [player, breaks] of Object.entries(streakBreaks)) {
+                if (breaks > maxBreaks) {
+                    maxBreaks = breaks;
+                    winners = [player];
+                } else if (breaks === maxBreaks && maxBreaks > 0) {
+                    winners.push(player);
                 }
             }
             
-            return { winner, stat: winner ? `${maxWins} big game wins` : 'N/A' };
+            return { winner: winners.join(' & ') || null, stat: winners.length > 0 ? `${maxBreaks} streaks ended` : 'N/A' };
         }
     },
     {
@@ -180,17 +219,19 @@ const AWARDS = [
         calculate: (data) => {
             const { playerStats } = data;
             let maxTypes = 0;
-            let winner = null;
+            let winners = [];
             
             for (const [player, stats] of Object.entries(playerStats)) {
                 const uniqueGames = new Set(stats.gamesPlayed_list).size;
                 if (uniqueGames > maxTypes) {
                     maxTypes = uniqueGames;
-                    winner = player;
+                    winners = [player];
+                } else if (uniqueGames === maxTypes && maxTypes > 0) {
+                    winners.push(player);
                 }
             }
             
-            return { winner, stat: `${maxTypes} different games` };
+            return { winner: winners.join(' & ') || null, stat: `${maxTypes} different games` };
         }
     },
     {
@@ -219,18 +260,20 @@ const AWARDS = [
             });
             
             let maxRate = 0;
-            let winner = null;
+            let winners = [];
             
             for (const [player, stats] of Object.entries(recentStats)) {
                 if (stats.rate > maxRate) {
                     maxRate = stats.rate;
-                    winner = player;
+                    winners = [player];
+                } else if (stats.rate === maxRate && maxRate > 0) {
+                    winners.push(player);
                 }
             }
             
             return { 
-                winner, 
-                stat: winner ? `${(maxRate * 100).toFixed(0)}% recently` : 'N/A'
+                winner: winners.join(' & ') || null, 
+                stat: winners.length > 0 ? `${(maxRate * 100).toFixed(0)}% recently` : 'N/A'
             };
         }
     },
@@ -242,17 +285,19 @@ const AWARDS = [
         calculate: (data) => {
             const { playerStats } = data;
             let maxStreak = 0;
-            let winner = null;
+            let winners = [];
             
             for (const [player, stats] of Object.entries(playerStats)) {
                 if (stats.currentStreak > maxStreak) {
                     maxStreak = stats.currentStreak;
-                    winner = player;
+                    winners = [player];
+                } else if (stats.currentStreak === maxStreak && maxStreak > 0) {
+                    winners.push(player);
                 }
             }
             
             return { 
-                winner, 
+                winner: winners.join(' & ') || null, 
                 stat: maxStreak > 0 ? `${maxStreak} game streak` : 'No active streaks'
             };
         }
@@ -282,65 +327,65 @@ const AWARDS = [
             });
             
             let maxComebacks = 0;
-            let winner = null;
+            let winners = [];
             
             for (const [player, comebacks] of Object.entries(comebackWins)) {
                 if (comebacks > maxComebacks) {
                     maxComebacks = comebacks;
-                    winner = player;
+                    winners = [player];
+                } else if (comebacks === maxComebacks && maxComebacks > 0) {
+                    winners.push(player);
                 }
             }
             
-            return { winner, stat: winner ? `${maxComebacks} comebacks` : 'N/A' };
+            return { winner: winners.join(' & ') || null, stat: winners.length > 0 ? `${maxComebacks} comebacks` : 'N/A' };
         }
     },
     {
-        id: 'nemesis',
-        name: 'The Nemesis',
-        icon: '😈',
-        description: 'Best head-to-head record against another player',
+        id: 'giantslayer',
+        name: 'The Giant Slayer',
+        icon: '🗡️',
+        description: 'Most wins in games where the overall leader played',
         calculate: (data) => {
-            const { games, players } = data;
-            const headToHead = {};
+            const { games, playerStats } = data;
             
-            // Calculate head-to-head for 2-player games
+            // First, find the overall leader (most wins)
+            let maxWins = 0;
+            let overallLeader = null;
+            for (const [player, stats] of Object.entries(playerStats)) {
+                if (stats.wins > maxWins) {
+                    maxWins = stats.wins;
+                    overallLeader = player;
+                }
+            }
+            
+            if (!overallLeader) {
+                return { winner: null, stat: 'N/A' };
+            }
+            
+            // Count wins against the leader (excluding the leader themselves)
+            const slayerWins = {};
             games.forEach(game => {
-                if (game.players && game.players.length === 2 && game.winner) {
-                    const [p1, p2] = game.players;
-                    const key = `${game.winner} vs ${game.winner === p1 ? p2 : p1}`;
-                    headToHead[key] = headToHead[key] || { wins: 0, total: 0, winner: game.winner, loser: game.winner === p1 ? p2 : p1 };
-                    headToHead[key].wins++;
-                    headToHead[key].total++;
-                    
-                    // Track losses for opponent
-                    const reverseKey = `${game.winner === p1 ? p2 : p1} vs ${game.winner}`;
-                    headToHead[reverseKey] = headToHead[reverseKey] || { wins: 0, total: 0, winner: game.winner === p1 ? p2 : p1, loser: game.winner };
-                    headToHead[reverseKey].total++;
+                if (game.players && game.players.includes(overallLeader) && game.winner && game.winner !== overallLeader) {
+                    slayerWins[game.winner] = (slayerWins[game.winner] || 0) + 1;
                 }
             });
             
-            let bestRecord = 0;
-            let winner = null;
-            let opponent = null;
-            let wins = 0;
-            let total = 0;
+            let maxSlays = 0;
+            let winners = [];
             
-            for (const [key, stats] of Object.entries(headToHead)) {
-                if (stats.total >= 3) {
-                    const rate = stats.wins / stats.total;
-                    if (rate > bestRecord) {
-                        bestRecord = rate;
-                        winner = stats.winner;
-                        opponent = stats.loser;
-                        wins = stats.wins;
-                        total = stats.total;
-                    }
+            for (const [player, wins] of Object.entries(slayerWins)) {
+                if (wins > maxSlays) {
+                    maxSlays = wins;
+                    winners = [player];
+                } else if (wins === maxSlays && maxSlays > 0) {
+                    winners.push(player);
                 }
             }
             
             return { 
-                winner, 
-                stat: winner ? `${wins}-${total - wins} vs ${opponent}` : 'N/A'
+                winner: winners.join(' & ') || null, 
+                stat: winners.length > 0 ? `${maxSlays} wins vs ${overallLeader}` : 'N/A'
             };
         }
     }
