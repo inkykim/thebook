@@ -26,6 +26,9 @@ let charts = {};
 // Current players being added to the form
 let currentPlayers = [];
 
+// Edit mode state
+let editMode = false;
+
 /**
  * Initialize the application
  */
@@ -36,6 +39,7 @@ function init() {
     const cancelBtn = document.getElementById('cancel-log');
     const addPlayerBtn = document.getElementById('add-player-btn');
     const addPlayerInput = document.getElementById('add-player-input');
+    const editModeBtn = document.getElementById('toggle-edit-mode');
     
     toggleBtn.addEventListener('click', toggleLogForm);
     saveBtn.addEventListener('click', saveGame);
@@ -47,6 +51,7 @@ function init() {
             addPlayer();
         }
     });
+    editModeBtn.addEventListener('click', toggleEditMode);
     
     // Load data from localStorage or sample data
     loadData();
@@ -658,52 +663,81 @@ function renderPopularGamesChart() {
 }
 
 /**
+ * Parse date string to Date object (handles M/D/YYYY format)
+ */
+function parseDate(dateStr) {
+    if (!dateStr) return null;
+    // Handle M/D/YYYY format
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+        return new Date(parts[2], parts[0] - 1, parts[1]);
+    }
+    return new Date(dateStr);
+}
+
+/**
  * Render wins over time chart
  */
 function renderTimelineChart() {
     const ctx = document.getElementById('timeline-chart').getContext('2d');
     
-    // Group wins by date for each player
-    const dateWins = {};
-    const sortedGames = [...gameData.games].sort((a, b) => new Date(a.date) - new Date(b.date));
+    // Sort games by date chronologically
+    const sortedGames = [...gameData.games]
+        .filter(g => g.date)
+        .sort((a, b) => parseDate(a.date) - parseDate(b.date));
     
-    // Initialize cumulative wins
-    const cumulativeWins = {};
-    gameData.players.forEach(p => cumulativeWins[p] = 0);
+    if (sortedGames.length === 0) {
+        if (charts.timeline) charts.timeline.destroy();
+        return;
+    }
     
-    sortedGames.forEach(game => {
-        if (game.winner && game.date) {
-            cumulativeWins[game.winner]++;
-            
-            if (!dateWins[game.date]) {
-                dateWins[game.date] = { ...cumulativeWins };
-            } else {
-                dateWins[game.date] = { ...cumulativeWins };
-            }
-        }
-    });
-    
-    const dates = Object.keys(dateWins).sort();
-    
-    if (charts.timeline) charts.timeline.destroy();
+    // Get unique dates in chronological order
+    const uniqueDates = [...new Set(sortedGames.map(g => g.date))]
+        .sort((a, b) => parseDate(a) - parseDate(b));
     
     // Only show top 5 players for clarity
     const topPlayers = [...gameData.players]
         .sort((a, b) => gameData.playerStats[b].wins - gameData.playerStats[a].wins)
         .slice(0, 5);
     
+    // Build data: start at 0, then show cumulative after each date
+    const chartLabels = ['Start', ...uniqueDates];
+    const playerData = {};
+    topPlayers.forEach(p => playerData[p] = [0]); // Everyone starts at 0
+    
+    // Track cumulative wins
+    const cumulativeWins = {};
+    topPlayers.forEach(p => cumulativeWins[p] = 0);
+    
+    // Process each date chronologically
+    uniqueDates.forEach(date => {
+        // Get all games on this date and update cumulative wins
+        sortedGames
+            .filter(g => g.date === date)
+            .forEach(game => {
+                if (game.winner && cumulativeWins.hasOwnProperty(game.winner)) {
+                    cumulativeWins[game.winner]++;
+                }
+            });
+        
+        // Add data point for this date
+        topPlayers.forEach(p => playerData[p].push(cumulativeWins[p]));
+    });
+    
+    if (charts.timeline) charts.timeline.destroy();
+    
     charts.timeline = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: dates,
+            labels: chartLabels,
             datasets: topPlayers.map((player, i) => ({
                 label: player,
-                data: dates.map(date => dateWins[date][player] || 0),
+                data: playerData[player],
                 borderColor: COLORS[i],
                 backgroundColor: COLORS[i] + '20',
                 fill: false,
                 tension: 0.3,
-                pointRadius: 3
+                pointRadius: 4
             }))
         },
         options: {
@@ -717,7 +751,10 @@ function renderTimelineChart() {
             scales: {
                 y: {
                     beginAtZero: true,
-                    ticks: { color: '#94a3b8' },
+                    ticks: { 
+                        color: '#94a3b8',
+                        stepSize: 1
+                    },
                     grid: { color: '#334155' }
                 },
                 x: {
@@ -764,32 +801,148 @@ function renderLeaderboard() {
 }
 
 /**
- * Render recent game history
+ * Render game history with edit capabilities
  */
 function renderHistory() {
     const container = document.getElementById('game-history');
     
-    // Show last 10 games
-    const recentGames = [...gameData.games]
-        .reverse()
-        .slice(0, 10);
+    // Get raw data for editing
+    const savedGames = JSON.parse(localStorage.getItem('gameData') || '[]');
     
-    container.innerHTML = recentGames.map(game => `
+    // Show all games (reversed so newest first)
+    const allGames = [...savedGames].reverse();
+    
+    container.innerHTML = allGames.map((game, displayIndex) => {
+        // Calculate the actual index in the saved array
+        const actualIndex = savedGames.length - 1 - displayIndex;
+        const playersStr = game.players || '';
+        const playersArr = playersStr.split(/[,;]/).map(p => p.trim()).filter(p => p);
+        const otherPlayers = playersArr.filter(p => p !== game.winner);
+        
+        return `
         <div class="game-entry">
-            <div class="game-info">
-                <span class="game-name">${game.gameName || 'Unknown Game'}</span>
-                <span class="game-date">${game.date || 'No date'}</span>
+            <div class="game-display">
+                <div class="game-info">
+                    <span class="game-name">${game.game || 'Unknown Game'}</span>
+                    <span class="game-date">${game.date || 'No date'}</span>
+                </div>
+                <div>
+                    <span class="game-winner">🏆 ${game.winner || 'Unknown'}</span>
+                    <span class="game-players"> vs ${otherPlayers.join(', ') || 'N/A'}</span>
+                </div>
             </div>
-            <div>
-                <span class="game-winner">🏆 ${game.winner || 'Unknown'}</span>
-                <span class="game-players"> vs ${game.players.filter(p => p !== game.winner).join(', ') || 'N/A'}</span>
+            <div class="edit-inputs">
+                <input type="text" class="edit-date" value="${game.date || ''}" placeholder="Date" style="width: 100px">
+                <input type="text" class="edit-game" value="${game.game || ''}" placeholder="Game">
+                <input type="text" class="edit-winner" value="${game.winner || ''}" placeholder="Winner">
+                <input type="text" class="edit-players" value="${playersStr}" placeholder="Players (comma-sep)" style="width: 200px">
+                <button class="btn btn-primary btn-icon" onclick="saveEditedGame(${actualIndex})">Save</button>
+                <button class="btn btn-secondary btn-icon" onclick="cancelEdit(${displayIndex})">Cancel</button>
+            </div>
+            <div class="game-actions">
+                <button class="btn btn-secondary btn-icon" onclick="editGame(${displayIndex})">✏️</button>
+                <button class="btn btn-danger btn-icon" onclick="deleteGame(${actualIndex})">🗑️</button>
             </div>
         </div>
-    `).join('');
+    `}).join('');
+    
+    // Maintain edit mode class if active
+    if (editMode) {
+        container.classList.add('edit-mode');
+    }
 }
 
-// Make removePlayer available globally for onclick handlers
+/**
+ * Toggle edit mode for game history
+ */
+function toggleEditMode() {
+    editMode = !editMode;
+    const btn = document.getElementById('toggle-edit-mode');
+    const historySection = document.getElementById('game-history');
+    
+    if (editMode) {
+        btn.textContent = 'Done';
+        btn.classList.add('btn-primary');
+        btn.classList.remove('btn-secondary');
+        historySection.classList.add('edit-mode');
+    } else {
+        btn.textContent = 'Edit';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-secondary');
+        historySection.classList.remove('edit-mode');
+    }
+    
+    renderHistory();
+}
+
+/**
+ * Delete a game by index
+ */
+function deleteGame(index) {
+    if (!confirm('Delete this game?')) return;
+    
+    const savedGames = JSON.parse(localStorage.getItem('gameData') || '[]');
+    savedGames.splice(index, 1);
+    localStorage.setItem('gameData', JSON.stringify(savedGames));
+    
+    // Refresh display
+    processData(savedGames);
+    renderAll();
+}
+
+/**
+ * Start editing a game
+ */
+function editGame(index) {
+    const entries = document.querySelectorAll('.game-entry');
+    entries.forEach((entry, i) => {
+        if (i === index) {
+            entry.classList.add('editing');
+        } else {
+            entry.classList.remove('editing');
+        }
+    });
+}
+
+/**
+ * Save edited game
+ */
+function saveEditedGame(index) {
+    const entry = document.querySelectorAll('.game-entry')[index];
+    const dateInput = entry.querySelector('.edit-date');
+    const gameInput = entry.querySelector('.edit-game');
+    const winnerInput = entry.querySelector('.edit-winner');
+    const playersInput = entry.querySelector('.edit-players');
+    
+    const savedGames = JSON.parse(localStorage.getItem('gameData') || '[]');
+    savedGames[index] = {
+        date: dateInput.value,
+        game: gameInput.value.toLowerCase(),
+        winner: winnerInput.value.toLowerCase(),
+        players: playersInput.value
+    };
+    localStorage.setItem('gameData', JSON.stringify(savedGames));
+    
+    // Refresh display
+    processData(savedGames);
+    renderAll();
+}
+
+/**
+ * Cancel editing a game
+ */
+function cancelEdit(index) {
+    const entries = document.querySelectorAll('.game-entry');
+    entries[index].classList.remove('editing');
+    renderHistory();
+}
+
+// Make functions available globally for onclick handlers
 window.removePlayer = removePlayer;
+window.deleteGame = deleteGame;
+window.editGame = editGame;
+window.saveEditedGame = saveEditedGame;
+window.cancelEdit = cancelEdit;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', init);

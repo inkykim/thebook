@@ -441,6 +441,17 @@ header h1 {
 .rank-3 { color: var(--bronze); font-weight: 700; }
 
 /* Game History */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.section-header .section-title {
+    margin-bottom: 0;
+}
+
 .game-history {
     display: grid;
     gap: 1rem;
@@ -486,6 +497,65 @@ header h1 {
 .game-players {
     color: var(--text-muted);
     font-size: 0.9rem;
+}
+
+.game-actions {
+    display: none;
+    gap: 0.5rem;
+}
+
+.edit-mode .game-actions {
+    display: flex;
+}
+
+.btn-danger {
+    background: #dc2626;
+    color: white;
+    border: none;
+}
+
+.btn-danger:hover {
+    background: #b91c1c;
+}
+
+.btn-icon {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.game-entry.editing {
+    background: var(--surface-light);
+    border-color: var(--primary);
+}
+
+.game-entry input {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--background);
+    color: var(--text);
+    font-size: 0.95rem;
+    width: auto;
+}
+
+.game-entry input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+.edit-inputs {
+    display: none;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.game-entry.editing .edit-inputs {
+    display: flex;
+}
+
+.game-entry.editing .game-display {
+    display: none;
 }
 
 /* Footer */
