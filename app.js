@@ -23,124 +23,217 @@ let gameData = {
 // Chart instances
 let charts = {};
 
+// Current players being added to the form
+let currentPlayers = [];
+
 /**
  * Initialize the application
  */
 function init() {
-    const loadButton = document.getElementById('load-data');
-    const loadSampleButton = document.getElementById('load-sample');
-    const urlInput = document.getElementById('sheet-url');
+    // Log form controls
+    const toggleBtn = document.getElementById('toggle-log-form');
+    const saveBtn = document.getElementById('save-game');
+    const cancelBtn = document.getElementById('cancel-log');
+    const addPlayerBtn = document.getElementById('add-player-btn');
+    const addPlayerInput = document.getElementById('add-player-input');
     
-    loadButton.addEventListener('click', loadData);
-    loadSampleButton.addEventListener('click', loadSampleData);
-    urlInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') loadData();
+    toggleBtn.addEventListener('click', toggleLogForm);
+    saveBtn.addEventListener('click', saveGame);
+    cancelBtn.addEventListener('click', hideLogForm);
+    addPlayerBtn.addEventListener('click', addPlayer);
+    addPlayerInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addPlayer();
+        }
     });
     
-    // Try to load from localStorage
-    const savedUrl = localStorage.getItem('sheetUrl');
-    if (savedUrl) {
-        urlInput.value = savedUrl;
+    // Load data from localStorage or sample data
+    loadData();
+}
+
+/**
+ * Toggle the log form visibility
+ */
+function toggleLogForm() {
+    const form = document.getElementById('log-form');
+    const btn = document.getElementById('toggle-log-form');
+    
+    if (form.classList.contains('hidden')) {
+        form.classList.remove('hidden');
+        btn.textContent = '− Cancel';
+        updateSuggestions();
+    } else {
+        hideLogForm();
     }
 }
 
 /**
- * Load sample data for demonstration
+ * Hide the log form and reset it
  */
-async function loadSampleData() {
-    showStatus('Loading sample data...', '');
+function hideLogForm() {
+    const form = document.getElementById('log-form');
+    const btn = document.getElementById('toggle-log-form');
     
-    try {
-        const response = await fetch('sample-data.csv');
-        if (!response.ok) throw new Error('Failed to load sample data');
-        
-        const csvText = await response.text();
-        const data = parseCSV(csvText);
-        
-        // Process the data
-        processData(data);
-        
-        // Show sections and render
-        showSections();
-        renderAll();
-        
-        showStatus(`Loaded sample data: ${gameData.games.length} games with ${gameData.players.length} players`, 'success');
-        
-    } catch (error) {
-        console.error('Error loading sample data:', error);
-        showStatus('Error loading sample data. Try entering a Google Sheet URL instead.', 'error');
-    }
+    form.classList.add('hidden');
+    btn.textContent = '+ Log Game';
+    resetForm();
 }
 
 /**
- * Load data from Google Sheets CSV
+ * Reset the log form
  */
-async function loadData() {
-    const urlInput = document.getElementById('sheet-url');
-    const statusDiv = document.getElementById('data-status');
-    let url = urlInput.value.trim();
+function resetForm() {
+    document.getElementById('game-name').value = '';
+    document.getElementById('game-winner').value = '';
+    document.getElementById('add-player-input').value = '';
+    currentPlayers = [];
+    renderPlayerChips();
+    document.getElementById('log-status').textContent = '';
+}
+
+/**
+ * Add a player to the current game
+ */
+function addPlayer() {
+    const input = document.getElementById('add-player-input');
+    const name = input.value.trim().toLowerCase();
     
-    if (!url) {
-        showStatus('Please enter a Google Sheets URL', 'error');
+    if (name && !currentPlayers.includes(name)) {
+        currentPlayers.push(name);
+        renderPlayerChips();
+    }
+    
+    input.value = '';
+    input.focus();
+}
+
+/**
+ * Remove a player from the current game
+ */
+function removePlayer(name) {
+    currentPlayers = currentPlayers.filter(p => p !== name);
+    renderPlayerChips();
+}
+
+/**
+ * Render player chips in the form
+ */
+function renderPlayerChips() {
+    const container = document.getElementById('player-chips');
+    
+    container.innerHTML = currentPlayers.map(player => `
+        <span class="player-chip">
+            ${player}
+            <span class="remove-player" onclick="removePlayer('${player}')">×</span>
+        </span>
+    `).join('');
+}
+
+/**
+ * Update autocomplete suggestions based on existing data
+ */
+function updateSuggestions() {
+    const gameSuggestions = document.getElementById('game-suggestions');
+    const playerSuggestions = document.getElementById('player-suggestions');
+    
+    gameSuggestions.innerHTML = gameData.gameTypes
+        .map(g => `<option value="${g}">`)
+        .join('');
+    
+    playerSuggestions.innerHTML = gameData.players
+        .map(p => `<option value="${p}">`)
+        .join('');
+}
+
+/**
+ * Save a new game
+ */
+function saveGame() {
+    const gameName = document.getElementById('game-name').value.trim().toLowerCase();
+    const winner = document.getElementById('game-winner').value.trim().toLowerCase();
+    const statusDiv = document.getElementById('log-status');
+    
+    // Validation
+    if (!gameName) {
+        statusDiv.textContent = 'Please enter a game name';
+        statusDiv.className = 'error';
         return;
     }
     
-    // Convert various Google Sheets URL formats to CSV export
-    url = convertToCSVUrl(url);
-    
-    showStatus('Loading data...', '');
-    
-    try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error('Failed to fetch data');
-        
-        const csvText = await response.text();
-        const data = parseCSV(csvText);
-        
-        if (data.length === 0) {
-            throw new Error('No data found in spreadsheet');
-        }
-        
-        // Save URL for next time
-        localStorage.setItem('sheetUrl', urlInput.value.trim());
-        
-        // Process the data
-        processData(data);
-        
-        // Show sections and render
-        showSections();
-        renderAll();
-        
-        showStatus(`Loaded ${gameData.games.length} games with ${gameData.players.length} players`, 'success');
-        
-    } catch (error) {
-        console.error('Error loading data:', error);
-        showStatus(`Error: ${error.message}. Make sure the sheet is published to web as CSV.`, 'error');
+    if (!winner) {
+        statusDiv.textContent = 'Please enter a winner';
+        statusDiv.className = 'error';
+        return;
     }
+    
+    // Ensure winner is in players list
+    let players = [...currentPlayers];
+    if (!players.includes(winner)) {
+        players.push(winner);
+    }
+    
+    // Create game entry
+    const today = new Date();
+    const dateStr = `${today.getMonth() + 1}/${today.getDate()}/${today.getFullYear()}`;
+    
+    const newGame = {
+        date: dateStr,
+        game: gameName,
+        winner: winner,
+        players: players.join('; ')
+    };
+    
+    // Load existing games, add new one, save
+    const savedGames = JSON.parse(localStorage.getItem('gameData') || '[]');
+    savedGames.push(newGame);
+    localStorage.setItem('gameData', JSON.stringify(savedGames));
+    
+    // Refresh display
+    processData(savedGames);
+    renderAll();
+    
+    // Show success and hide form
+    statusDiv.textContent = `✓ Logged: ${winner} won ${gameName}!`;
+    statusDiv.className = 'success';
+    
+    setTimeout(() => {
+        hideLogForm();
+    }, 1500);
 }
 
 /**
- * Convert Google Sheets URL to CSV export format
+ * Load data from localStorage or sample data
  */
-function convertToCSVUrl(url) {
-    // Already a CSV URL
-    if (url.includes('output=csv')) return url;
+async function loadData() {
+    // Check for saved games in localStorage
+    const savedGames = JSON.parse(localStorage.getItem('gameData') || '[]');
     
-    // Extract sheet ID from various formats
-    const patterns = [
-        /\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/,
-        /\/d\/([a-zA-Z0-9-_]+)/,
-        /key=([a-zA-Z0-9-_]+)/
-    ];
-    
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match) {
-            return `https://docs.google.com/spreadsheets/d/${match[1]}/pub?output=csv`;
+    if (savedGames.length > 0) {
+        // Use saved data
+        processData(savedGames);
+        showSections();
+        renderAll();
+    } else {
+        // Load sample data for first-time users
+        try {
+            const response = await fetch('sample-data.csv');
+            if (response.ok) {
+                const csvText = await response.text();
+                const data = parseCSV(csvText);
+                
+                // Save sample data to localStorage
+                localStorage.setItem('gameData', JSON.stringify(data));
+                
+                processData(data);
+                showSections();
+                renderAll();
+            }
+        } catch (error) {
+            console.log('No sample data available, starting fresh');
+            showSections();
         }
     }
-    
-    return url;
 }
 
 /**
@@ -315,10 +408,10 @@ function calculatePlayerStats() {
 }
 
 /**
- * Show status message
+ * Show log status message
  */
-function showStatus(message, type) {
-    const statusDiv = document.getElementById('data-status');
+function showLogStatus(message, type) {
+    const statusDiv = document.getElementById('log-status');
     statusDiv.textContent = message;
     statusDiv.className = type;
 }
@@ -694,6 +787,9 @@ function renderHistory() {
         </div>
     `).join('');
 }
+
+// Make removePlayer available globally for onclick handlers
+window.removePlayer = removePlayer;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', init);

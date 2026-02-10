@@ -18,23 +18,39 @@
             <p class="subtitle">Phi Delts Board Game Tracker 2026</p>
         </header>
 
-        <!-- Data Source Configuration -->
-        <section id="data-config" class="card config-card">
-            <h2>🔗 Connect Your Data</h2>
-            <p>Paste your Google Sheet URL (make sure it's published to the web as CSV)</p>
-            <div class="input-group">
-                <input type="text" id="sheet-url" placeholder="https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/pub?output=csv">
-                <button id="load-data" class="btn btn-primary">Load Data</button>
+        <!-- Log Game Section -->
+        <section id="log-section" class="card log-card">
+            <div class="log-header">
+                <h2>🎲 Log a Game</h2>
+                <button id="toggle-log-form" class="btn btn-primary">+ Log Game</button>
             </div>
-            <p class="help-text">
-                To publish: Google Sheets → File → Share → Publish to web → Select CSV format → Publish
-            </p>
-            <div class="sample-data-section">
-                <span class="or-divider">or</span>
-                <button id="load-sample" class="btn btn-secondary">Load Sample Data</button>
-                <span class="help-text">See how it works with example data</span>
+            <div id="log-form" class="log-form hidden">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="game-name">Game</label>
+                        <input type="text" id="game-name" placeholder="e.g. Catan" list="game-suggestions">
+                        <datalist id="game-suggestions"></datalist>
+                    </div>
+                    <div class="form-group">
+                        <label for="game-winner">Winner</label>
+                        <input type="text" id="game-winner" placeholder="e.g. lars" list="player-suggestions">
+                        <datalist id="player-suggestions"></datalist>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Players</label>
+                    <div id="player-chips" class="player-chips"></div>
+                    <div class="player-input-row">
+                        <input type="text" id="add-player-input" placeholder="Add player..." list="player-suggestions">
+                        <button id="add-player-btn" class="btn btn-secondary btn-sm">Add</button>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button id="save-game" class="btn btn-primary">Save Game</button>
+                    <button id="cancel-log" class="btn btn-secondary">Cancel</button>
+                </div>
             </div>
-            <div id="data-status"></div>
+            <div id="log-status"></div>
         </section>
 
         <!-- Awards Section -->
