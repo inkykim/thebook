@@ -4,7 +4,7 @@
 
 A beautiful GitHub Pages site for tracking board game wins, displaying statistics, and awarding fun achievements to your game night crew.
 
-🔗 **Live Site:** [https://YOUR_USERNAME.github.io/thebook](https://YOUR_USERNAME.github.io/thebook)
+🔗 **Live Site:** [https://inkykim.github.io/thebook](https://inkykim.github.io/thebook)
 
 ---
 
