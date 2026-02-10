@@ -1,7 +1,15 @@
 /**
  * The Book - Board Game Tracker
- * Main application logic
+ * Main application logic with Supabase backend
  */
+
+// Initialize Supabase client
+let db;
+try {
+    db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch (e) {
+    console.error('Failed to initialize Supabase. Check your config.js');
+}
 
 // Chart color palette
 const COLORS = [
@@ -154,7 +162,7 @@ function updateSuggestions() {
 /**
  * Save a new game
  */
-function saveGame() {
+async function saveGame() {
     const gameName = document.getElementById('game-name').value.trim().toLowerCase();
     const winner = document.getElementById('game-winner').value.trim().toLowerCase();
     const statusDiv = document.getElementById('log-status');
@@ -189,14 +197,23 @@ function saveGame() {
         players: players.join('; ')
     };
     
-    // Load existing games, add new one, save
-    const savedGames = JSON.parse(localStorage.getItem('gameData') || '[]');
-    savedGames.push(newGame);
-    localStorage.setItem('gameData', JSON.stringify(savedGames));
+    statusDiv.textContent = 'Saving...';
+    statusDiv.className = '';
+    
+    // Save to Supabase
+    const { error } = await db
+        .from('games')
+        .insert([newGame]);
+    
+    if (error) {
+        console.error('Error saving game:', error);
+        statusDiv.textContent = 'Error saving game. Check console.';
+        statusDiv.className = 'error';
+        return;
+    }
     
     // Refresh display
-    processData(savedGames);
-    renderAll();
+    await loadData();
     
     // Show success and hide form
     statusDiv.textContent = `✓ Logged: ${winner} won ${gameName}!`;
@@ -208,37 +225,62 @@ function saveGame() {
 }
 
 /**
- * Load data from localStorage or sample data
+ * Load data from Supabase
  */
 async function loadData() {
-    // Check for saved games in localStorage
-    const savedGames = JSON.parse(localStorage.getItem('gameData') || '[]');
+    console.log('Loading data from Supabase...');
     
-    if (savedGames.length > 0) {
-        // Use saved data
-        processData(savedGames);
-        showSections();
-        renderAll();
-    } else {
-        // Load sample data for first-time users
-        try {
-            const response = await fetch('sample-data.csv');
-            if (response.ok) {
-                const csvText = await response.text();
-                const data = parseCSV(csvText);
-                
-                // Save sample data to localStorage
-                localStorage.setItem('gameData', JSON.stringify(data));
-                
-                processData(data);
-                showSections();
-                renderAll();
-            }
-        } catch (error) {
-            console.log('No sample data available, starting fresh');
-            showSections();
-        }
+    if (!db || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
+        console.log('Supabase not configured');
+        showSetupMessage();
+        return;
     }
+    
+    try {
+        const { data, error } = await db
+            .from('games')
+            .select('*')
+            .order('id', { ascending: true });
+        
+        console.log('Supabase response:', { data, error });
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+            console.log(`Loaded ${data.length} games`);
+            processData(data);
+            showSections();
+            renderAll();
+        } else {
+            console.log('No data found');
+            showSections();
+            processData([]);
+            renderAll();
+        }
+    } catch (error) {
+        console.error('Error loading data:', error);
+        showSetupMessage();
+    }
+}
+
+/**
+ * Show setup message when Supabase is not configured
+ */
+function showSetupMessage() {
+    const logSection = document.getElementById('log-section');
+    logSection.innerHTML = `
+        <div class="setup-message">
+            <h2>⚙️ Setup Required</h2>
+            <p>To use The Book, you need to configure Supabase:</p>
+            <ol>
+                <li>Create a free account at <a href="https://supabase.com" target="_blank">supabase.com</a></li>
+                <li>Create a new project</li>
+                <li>Create a <code>games</code> table (see README for SQL)</li>
+                <li>Edit <code>config.js</code> with your project URL and anon key</li>
+            </ol>
+            <p>See the <a href="https://github.com/YOUR_USERNAME/thebook#setup" target="_blank">README</a> for detailed instructions.</p>
+        </div>
+    `;
 }
 
 /**
@@ -806,15 +848,11 @@ function renderLeaderboard() {
 function renderHistory() {
     const container = document.getElementById('game-history');
     
-    // Get raw data for editing
-    const savedGames = JSON.parse(localStorage.getItem('gameData') || '[]');
-    
     // Show all games (reversed so newest first)
-    const allGames = [...savedGames].reverse();
+    const allGames = [...gameData.raw].reverse();
     
     container.innerHTML = allGames.map((game, displayIndex) => {
-        // Calculate the actual index in the saved array
-        const actualIndex = savedGames.length - 1 - displayIndex;
+        const gameId = game.id;
         const playersStr = game.players || '';
         const playersArr = playersStr.split(/[,;]/).map(p => p.trim()).filter(p => p);
         const otherPlayers = playersArr.filter(p => p !== game.winner);
@@ -836,12 +874,12 @@ function renderHistory() {
                 <input type="text" class="edit-game" value="${game.game || ''}" placeholder="Game">
                 <input type="text" class="edit-winner" value="${game.winner || ''}" placeholder="Winner">
                 <input type="text" class="edit-players" value="${playersStr}" placeholder="Players (comma-sep)" style="width: 200px">
-                <button class="btn btn-primary btn-icon" onclick="saveEditedGame(${actualIndex})">Save</button>
+                <button class="btn btn-primary btn-icon" onclick="saveEditedGame(${gameId}, ${displayIndex})">Save</button>
                 <button class="btn btn-secondary btn-icon" onclick="cancelEdit(${displayIndex})">Cancel</button>
             </div>
             <div class="game-actions">
                 <button class="btn btn-secondary btn-icon" onclick="editGame(${displayIndex})">✏️</button>
-                <button class="btn btn-danger btn-icon" onclick="deleteGame(${actualIndex})">🗑️</button>
+                <button class="btn btn-danger btn-icon" onclick="deleteGame(${gameId})">🗑️</button>
             </div>
         </div>
     `}).join('');
@@ -876,18 +914,24 @@ function toggleEditMode() {
 }
 
 /**
- * Delete a game by index
+ * Delete a game by ID
  */
-function deleteGame(index) {
+async function deleteGame(id) {
     if (!confirm('Delete this game?')) return;
     
-    const savedGames = JSON.parse(localStorage.getItem('gameData') || '[]');
-    savedGames.splice(index, 1);
-    localStorage.setItem('gameData', JSON.stringify(savedGames));
+    const { error } = await db
+        .from('games')
+        .delete()
+        .eq('id', id);
+    
+    if (error) {
+        console.error('Error deleting game:', error);
+        alert('Error deleting game');
+        return;
+    }
     
     // Refresh display
-    processData(savedGames);
-    renderAll();
+    await loadData();
 }
 
 /**
@@ -907,25 +951,32 @@ function editGame(index) {
 /**
  * Save edited game
  */
-function saveEditedGame(index) {
-    const entry = document.querySelectorAll('.game-entry')[index];
+async function saveEditedGame(id, displayIndex) {
+    const entries = document.querySelectorAll('.game-entry');
+    const entry = entries[displayIndex];
     const dateInput = entry.querySelector('.edit-date');
     const gameInput = entry.querySelector('.edit-game');
     const winnerInput = entry.querySelector('.edit-winner');
     const playersInput = entry.querySelector('.edit-players');
     
-    const savedGames = JSON.parse(localStorage.getItem('gameData') || '[]');
-    savedGames[index] = {
-        date: dateInput.value,
-        game: gameInput.value.toLowerCase(),
-        winner: winnerInput.value.toLowerCase(),
-        players: playersInput.value
-    };
-    localStorage.setItem('gameData', JSON.stringify(savedGames));
+    const { error } = await db
+        .from('games')
+        .update({
+            date: dateInput.value,
+            game: gameInput.value.toLowerCase(),
+            winner: winnerInput.value.toLowerCase(),
+            players: playersInput.value
+        })
+        .eq('id', id);
+    
+    if (error) {
+        console.error('Error updating game:', error);
+        alert('Error updating game');
+        return;
+    }
     
     // Refresh display
-    processData(savedGames);
-    renderAll();
+    await loadData();
 }
 
 /**

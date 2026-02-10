@@ -2,7 +2,68 @@
 
 **Phi Delts Board Game Tracker 2026**
 
-A beautiful site for tracking board game wins, displaying statistics, and awarding fun achievements to your game night crew.
+A beautiful site for tracking board game wins, displaying statistics, and awarding fun achievements to your game night crew. Data syncs across all devices via Supabase.
+
+---
+
+## Setup
+
+### 1. Create a Supabase Project
+
+1. Go to [supabase.com](https://supabase.com) and create a free account
+2. Click **"New Project"**
+3. Choose a name and set a database password (save this somewhere)
+4. Wait for the project to be created (~2 minutes)
+
+### 2. Create the Games Table
+
+1. In your Supabase dashboard, go to **SQL Editor**
+2. Click **"New Query"**
+3. Paste this SQL and click **"Run"**:
+
+```sql
+-- Create the games table
+CREATE TABLE games (
+    id BIGSERIAL PRIMARY KEY,
+    date TEXT,
+    game TEXT NOT NULL,
+    winner TEXT NOT NULL,
+    players TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable Row Level Security
+ALTER TABLE games ENABLE ROW LEVEL SECURITY;
+
+-- Create a policy that allows all operations (for a trusted friend group)
+CREATE POLICY "Allow all operations" ON games
+    FOR ALL
+    USING (true)
+    WITH CHECK (true);
+```
+
+### 3. Get Your API Keys
+
+1. In Supabase dashboard, go to **Settings → API**
+2. Copy your **Project URL** (looks like `https://xxxxx.supabase.co`)
+3. Copy your **anon/public key** (the long string under "Project API keys")
+
+### 4. Configure the App
+
+1. Open `config.js` in this repository
+2. Replace the placeholder values:
+
+```javascript
+const SUPABASE_URL = 'https://your-project-id.supabase.co';
+const SUPABASE_ANON_KEY = 'your-anon-key-here';
+```
+
+### 5. Deploy to GitHub Pages
+
+1. Commit and push your changes to GitHub
+2. Go to **Settings → Pages** in your repository
+3. Set source to **Deploy from branch** → `main` → `/ (root)`
+4. Your site will be live at `https://YOUR_USERNAME.github.io/thebook`
 
 ---
 
@@ -11,7 +72,7 @@ A beautiful site for tracking board game wins, displaying statistics, and awardi
 ### 🎲 Log Games
 - Click **"+ Log Game"** to record a new game
 - Autocomplete suggests games and players from your history
-- Games are saved locally in your browser
+- Data syncs instantly across all devices
 
 ### ✏️ Edit History
 - Click **"Edit"** in the Game Log section
@@ -45,23 +106,20 @@ A beautiful site for tracking board game wins, displaying statistics, and awardi
 
 ---
 
-## Setup
+## Importing Existing Data
 
-### Enable GitHub Pages
+If you have existing game data, you can import it via the Supabase dashboard:
 
-1. Push this repo to GitHub
-2. Go to **Settings → Pages**
-3. Set source to **Deploy from branch** → `main` → `/ (root)`
-4. Your site will be live at `https://YOUR_USERNAME.github.io/thebook`
+1. Go to **Table Editor → games**
+2. Click **"Insert row"** to add games manually, or
+3. Click **"Import data from CSV"** to bulk import
 
----
-
-## Data Storage
-
-All data is stored in your browser's **localStorage**. This means:
-- Data persists between sessions
-- Each browser/device has its own data
-- Clearing browser data will reset the tracker
+CSV format:
+```
+date,game,winner,players
+1/8/2026,catan,lars,stephen; phs; lars; surya
+1/9/2026,catan,lars,phs; surya; stephen; lars
+```
 
 ---
 
@@ -103,8 +161,19 @@ Edit `styles.css` - uses CSS variables for easy theming:
 
 - Vanilla JavaScript
 - Chart.js
-- localStorage
+- Supabase (PostgreSQL)
 - GitHub Pages
+
+---
+
+## Security Note
+
+The default setup uses a public policy that allows anyone with the URL to read/write data. This is fine for a small, trusted friend group. 
+
+For more security, you can:
+- Add Supabase Auth for user login
+- Restrict the RLS policy to authenticated users
+- Use environment variables for the keys in a more secure deployment
 
 ---
 

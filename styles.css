@@ -558,6 +558,41 @@ header h1 {
     display: none;
 }
 
+/* Setup Message */
+.setup-message {
+    text-align: left;
+}
+
+.setup-message h2 {
+    margin-bottom: 1rem;
+}
+
+.setup-message ol {
+    margin: 1.5rem 0;
+    padding-left: 1.5rem;
+}
+
+.setup-message li {
+    margin-bottom: 0.75rem;
+    color: var(--text-muted);
+}
+
+.setup-message code {
+    background: var(--background);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.setup-message a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+.setup-message a:hover {
+    text-decoration: underline;
+}
+
 /* Footer */
 footer {
     text-align: center;
