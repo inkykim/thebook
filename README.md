@@ -2,7 +2,7 @@
 
 **Phi Delts Board Game Tracker 2026**
 
-A beautiful site for tracking board game wins, displaying statistics, and awarding fun achievements to your game night crew. Data syncs across all devices via Supabase.
+A beautiful site for tracking board game wins, displaying statistics, and awarding fun achievements to your game night crew. Data syncs in real-time across all devices via Supabase.
 
 ---
 
@@ -12,7 +12,7 @@ A beautiful site for tracking board game wins, displaying statistics, and awardi
 
 1. Go to [supabase.com](https://supabase.com) and create a free account
 2. Click **"New Project"**
-3. Choose a name and set a database password (save this somewhere)
+3. Choose a name and set a database password
 4. Wait for the project to be created (~2 minutes)
 
 ### 2. Create the Games Table
@@ -35,27 +35,29 @@ CREATE TABLE games (
 -- Enable Row Level Security
 ALTER TABLE games ENABLE ROW LEVEL SECURITY;
 
--- Create a policy that allows all operations (for a trusted friend group)
+-- Allow all operations (for a trusted friend group)
 CREATE POLICY "Allow all operations" ON games
     FOR ALL
     USING (true)
     WITH CHECK (true);
+
+-- Enable realtime updates
+ALTER PUBLICATION supabase_realtime ADD TABLE games;
 ```
 
 ### 3. Get Your API Keys
 
 1. In Supabase dashboard, go to **Settings → API**
 2. Copy your **Project URL** (looks like `https://xxxxx.supabase.co`)
-3. Copy your **anon/public key** (the long string under "Project API keys")
+3. Copy your **anon/public key** (starts with `eyJ...`)
 
 ### 4. Configure the App
 
-1. Open `config.js` in this repository
-2. Replace the placeholder values:
+Edit `config.js` with your credentials:
 
 ```javascript
 const SUPABASE_URL = 'https://your-project-id.supabase.co';
-const SUPABASE_ANON_KEY = 'your-anon-key-here';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
 ```
 
 ### 5. Deploy to GitHub Pages
@@ -71,13 +73,17 @@ const SUPABASE_ANON_KEY = 'your-anon-key-here';
 
 ### 🎲 Log Games
 - Click **"+ Log Game"** to record a new game
-- Autocomplete suggests games and players from your history
-- Data syncs instantly across all devices
+- Autocomplete suggests games and players from history
+- Data syncs instantly to all devices
 
 ### ✏️ Edit History
 - Click **"Edit"** in the Game Log section
 - Modify any game's date, name, winner, or players
 - Delete games you want to remove
+
+### 🔄 Real-time Sync
+- All changes sync automatically across devices
+- No need to refresh - updates appear instantly
 
 ### 🏆 Awards
 
@@ -108,11 +114,10 @@ const SUPABASE_ANON_KEY = 'your-anon-key-here';
 
 ## Importing Existing Data
 
-If you have existing game data, you can import it via the Supabase dashboard:
+You can import existing game data via the Supabase dashboard:
 
 1. Go to **Table Editor → games**
-2. Click **"Insert row"** to add games manually, or
-3. Click **"Import data from CSV"** to bulk import
+2. Click **"Insert"** → **"Import data from CSV"**
 
 CSV format:
 ```
@@ -136,7 +141,6 @@ Edit `awards.js` and add to the `AWARDS` array:
     icon: '🏅',
     description: 'What this award means',
     calculate: (data) => {
-        // data contains: games, players, playerStats, playerGameStats
         return { winner: 'PlayerName', stat: '10 things' };
     }
 }
@@ -144,7 +148,7 @@ Edit `awards.js` and add to the `AWARDS` array:
 
 ### Styling
 
-Edit `styles.css` - uses CSS variables for easy theming:
+Edit `styles.css` - uses CSS variables for theming:
 
 ```css
 :root {
@@ -161,19 +165,8 @@ Edit `styles.css` - uses CSS variables for easy theming:
 
 - Vanilla JavaScript
 - Chart.js
-- Supabase (PostgreSQL)
+- Supabase (PostgreSQL + Realtime)
 - GitHub Pages
-
----
-
-## Security Note
-
-The default setup uses a public policy that allows anyone with the URL to read/write data. This is fine for a small, trusted friend group. 
-
-For more security, you can:
-- Add Supabase Auth for user login
-- Restrict the RLS policy to authenticated users
-- Use environment variables for the keys in a more secure deployment
 
 ---
 
