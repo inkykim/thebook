@@ -11,6 +11,9 @@ try {
     console.error('Failed to initialize Supabase. Check your config.js');
 }
 
+// Realtime subscription
+let realtimeChannel;
+
 // Chart color palette
 const COLORS = [
     '#6366f1', '#8b5cf6', '#a855f7', '#d946ef', '#ec4899',
@@ -257,9 +260,61 @@ async function loadData() {
             processData([]);
             renderAll();
         }
+        
+        // Subscribe to realtime updates
+        subscribeToUpdates();
+        
     } catch (error) {
         console.error('Error loading data:', error);
         showSetupMessage();
+    }
+}
+
+/**
+ * Subscribe to realtime updates from Supabase
+ */
+function subscribeToUpdates() {
+    // Unsubscribe from existing channel if any
+    if (realtimeChannel) {
+        db.removeChannel(realtimeChannel);
+    }
+    
+    // Subscribe to all changes on the games table
+    realtimeChannel = db
+        .channel('games-changes')
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'games' },
+            (payload) => {
+                console.log('Realtime update:', payload);
+                // Reload all data when any change happens
+                loadDataWithoutResubscribe();
+            }
+        )
+        .subscribe((status) => {
+            console.log('Realtime subscription status:', status);
+        });
+}
+
+/**
+ * Load data without resubscribing (to avoid infinite loop)
+ */
+async function loadDataWithoutResubscribe() {
+    try {
+        const { data, error } = await db
+            .from('games')
+            .select('*')
+            .order('id', { ascending: true });
+        
+        if (error) throw error;
+        
+        if (data) {
+            processData(data);
+            showSections();
+            renderAll();
+        }
+    } catch (error) {
+        console.error('Error reloading data:', error);
     }
 }
 
