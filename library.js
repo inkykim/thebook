@@ -385,137 +385,74 @@ function renderGamesLibrary(gameTypes, bggData, localStats) {
 }
 
 /**
- * Calculate skill profiles for ALL players based on relative performance
+ * Calculate skill profiles for ALL players
  * 
- * APPROACH: Average skill efficiency per game played
- * 
- * The problem with accumulating raw points: A player who plays many games accumulates
- * more points than someone who plays fewer games, even if the latter dominates their games.
- * 
- * Solution: Calculate AVERAGE skill points per game played.
- * This answers: "How good are you at the games you play?" not "How many games have you played?"
- * 
- * How it works:
- * 1. Each game contributes up to 30 skill points (normalized), distributed by skill weights
- * 2. For each game, a player's "dominance" = their wins / total wins in that game
- * 3. Player earns: dominance × game's skill points for each skill
- * 4. AVERAGE these across all games the player has won at least once
- * 5. Normalize to 0-100 scale: best average in each skill = 100
- * 
- * Example:
- * - Lars plays 5 games, dominates them (avg 60% of wins) → high average skill points
- * - Ink plays 10 games, mediocre at most (avg 25% of wins) → lower average
- * - Lars's hexagon will be larger despite playing fewer games
+ * For each game, your "dominance" = your wins / total wins.
+ * You earn skill points = dominance × game's skill weights.
+ * Scores are averaged across all games you've won.
  * 
  * @param {Object} playerGameStats - Per-player, per-game stats { player: { game: { wins, played } } }
  * @param {Object} bggData - BGG data cache with skill weights
  * @returns {Object} Map of playerName -> skill profile
  */
 function calculateAllPlayerSkills(playerGameStats, bggData) {
-    const POINTS_PER_GAME = 30; // Each game contributes 30 total skill points max
+    const POINTS_PER_GAME = 30;
     const skillKeys = ['planning', 'resourcing', 'negotiation', 'social', 'memory', 'luck'];
-    
     const players = Object.keys(playerGameStats);
     
-    // Track each player's skill totals AND count of games they've won in
     const playerData = {};
     players.forEach(player => {
-        playerData[player] = {
-            skillTotals: {},
-            gamesWithWins: 0 // Number of games (with skill data) where this player has at least 1 win
-        };
-        skillKeys.forEach(skill => {
-            playerData[player].skillTotals[skill] = 0;
-        });
+        playerData[player] = { skillTotals: {}, gamesWithWins: 0 };
+        skillKeys.forEach(skill => playerData[player].skillTotals[skill] = 0);
     });
     
-    // For each game with skill data, distribute points based on relative performance
     for (const [bggKey, gameData] of Object.entries(bggData)) {
         if (!gameData || !gameData.skills) continue;
         
         const gameSkills = gameData.skills;
-        
-        // Calculate total skill weight for this game (to normalize to POINTS_PER_GAME)
         const totalSkillWeight = skillKeys.reduce((sum, skill) => sum + (gameSkills[skill] || 0), 0);
         if (totalSkillWeight === 0) continue;
         
-        // Get all players' wins for this specific game
         const playerWinsInGame = {};
         let totalWinsInGame = 0;
         
         players.forEach(player => {
             const gameStats = playerGameStats[player];
-            // Check various case variations of the game name
             const gameKey = Object.keys(gameStats || {}).find(
                 g => g.toLowerCase().trim() === bggKey.toLowerCase().trim()
             );
-            
-            if (gameKey && gameStats[gameKey]) {
-                const wins = gameStats[gameKey].wins || 0;
-                if (wins > 0) {
-                    playerWinsInGame[player] = wins;
-                    totalWinsInGame += wins;
-                }
+            if (gameKey && gameStats[gameKey]?.wins > 0) {
+                playerWinsInGame[player] = gameStats[gameKey].wins;
+                totalWinsInGame += gameStats[gameKey].wins;
             }
         });
         
-        // Skip if no one has won this game
         if (totalWinsInGame === 0) continue;
         
-        // Award skill points to each player who has won this game
         for (const [player, wins] of Object.entries(playerWinsInGame)) {
-            const dominance = wins / totalWinsInGame; // e.g., 3 wins out of 10 total = 0.3 (30% dominance)
-            
-            // This player has wins in this game, count it
+            const dominance = wins / totalWinsInGame;
             playerData[player].gamesWithWins++;
             
             skillKeys.forEach(skill => {
-                // Normalize game's skill weight to POINTS_PER_GAME total, then multiply by dominance
                 const maxSkillPoints = (gameSkills[skill] || 0) / totalSkillWeight * POINTS_PER_GAME;
                 playerData[player].skillTotals[skill] += maxSkillPoints * dominance;
             });
         }
     }
     
-    // Calculate AVERAGE skill points per game (key change for fair comparison)
-    const playerAverageSkills = {};
-    players.forEach(player => {
-        const data = playerData[player];
-        
-        if (data.gamesWithWins === 0) {
-            playerAverageSkills[player] = null;
-            return;
-        }
-        
-        playerAverageSkills[player] = {};
-        skillKeys.forEach(skill => {
-            // Average skill points per game where they have wins
-            playerAverageSkills[player][skill] = data.skillTotals[skill] / data.gamesWithWins;
-        });
-    });
-    
-    // Find max average for each skill across all players (for normalization)
-    const maxPerSkill = {};
-    skillKeys.forEach(skill => {
-        const values = players
-            .filter(p => playerAverageSkills[p] !== null)
-            .map(p => playerAverageSkills[p][skill]);
-        maxPerSkill[skill] = Math.max(...values, 0.001); // Avoid division by zero
-    });
-    
-    // Normalize to 0-100 scale: best average in each skill = 100
     const playerSkillProfiles = {};
     players.forEach(player => {
-        if (playerAverageSkills[player] === null) {
+        const data = playerData[player];
+        if (data.gamesWithWins === 0) {
             playerSkillProfiles[player] = null;
             return;
         }
         
         playerSkillProfiles[player] = {};
         skillKeys.forEach(skill => {
-            playerSkillProfiles[player][skill] = Math.round(
-                (playerAverageSkills[player][skill] / maxPerSkill[skill]) * 100
-            );
+            // Average points per game, as percentage of max possible (30)
+            const avgPoints = data.skillTotals[skill] / data.gamesWithWins;
+            playerSkillProfiles[player][skill] = Math.round((avgPoints / POINTS_PER_GAME) * 100);
         });
     });
     
@@ -538,7 +475,7 @@ function getPlayerSkills(playerName, allPlayerSkills) {
  * @param {Object} skills - Skill profile object
  * @param {string} playerName - Player name for label
  */
-function renderPlayerSkillChart(canvasId, skills, playerName) {
+function renderPlayerSkillChart(canvasId, skills, playerName, globalMax = 100) {
     const canvas = document.getElementById(canvasId);
     if (!canvas || !skills) return;
     
@@ -549,11 +486,18 @@ function renderPlayerSkillChart(canvasId, skills, playerName) {
         canvas._chartInstance.destroy();
     }
     
+    // Target data values
+    const targetData = SKILL_ATTRIBUTES.map(attr => skills[attr.key] || 0);
+    
+    // Use global max for consistent scale across all players
+    const chartMax = Math.ceil(globalMax * 1.1); // Add 10% padding
+    
+    // Start with zero data for animation
     const data = {
         labels: SKILL_ATTRIBUTES.map(attr => attr.abbrev),
         datasets: [{
             label: playerName,
-            data: SKILL_ATTRIBUTES.map(attr => skills[attr.key] || 0),
+            data: [0, 0, 0, 0, 0, 0], // Start from center
             fill: true,
             backgroundColor: 'rgba(139, 115, 85, 0.3)',
             borderColor: 'rgba(139, 115, 85, 1)',
@@ -569,6 +513,10 @@ function renderPlayerSkillChart(canvasId, skills, playerName) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            animation: {
+                duration: 800,
+                easing: 'easeOutQuart'
+            },
             plugins: {
                 legend: { display: false },
                 tooltip: { enabled: false }
@@ -576,7 +524,7 @@ function renderPlayerSkillChart(canvasId, skills, playerName) {
             scales: {
                 r: {
                     beginAtZero: true,
-                    max: 100,
+                    max: chartMax,
                     ticks: { display: false },
                     grid: { color: '#2a2622' },
                     angleLines: { color: '#2a2622' },
@@ -590,6 +538,14 @@ function renderPlayerSkillChart(canvasId, skills, playerName) {
     };
     
     canvas._chartInstance = new Chart(ctx, config);
+    
+    // Animate to actual values after a brief delay
+    setTimeout(() => {
+        if (canvas._chartInstance) {
+            canvas._chartInstance.data.datasets[0].data = targetData;
+            canvas._chartInstance.update();
+        }
+    }, 50);
 }
 
 // Store for BGG data (needed for skill calculations)
@@ -840,13 +796,22 @@ function renderPlayersLibrary(playerStats, playerGameStats, bggData) {
         `;
     }).join('');
     
+    // Calculate global max skill value across all players for consistent chart scale
+    let globalMaxSkill = 1;
+    for (const [playerName, skills] of Object.entries(allPlayerSkills)) {
+        if (skills) {
+            const playerMax = Math.max(...Object.values(skills));
+            if (playerMax > globalMaxSkill) globalMaxSkill = playerMax;
+        }
+    }
+    
     // Render skill charts after DOM is updated
     setTimeout(() => {
         sortedPlayers.forEach(([playerName, stats]) => {
             const canvasId = `skill-chart-${playerName.replace(/[^a-zA-Z0-9]/g, '-')}`;
             const playerSkills = getPlayerSkills(playerName, allPlayerSkills);
             if (playerSkills) {
-                renderPlayerSkillChart(canvasId, playerSkills, playerName);
+                renderPlayerSkillChart(canvasId, playerSkills, playerName, globalMaxSkill);
             }
         });
     }, 100);
@@ -1045,6 +1010,10 @@ function updateSkillPreviewChart() {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            animation: {
+                duration: 400,
+                easing: 'easeOutQuart'
+            },
             plugins: { legend: { display: false }, tooltip: { enabled: false } },
             scales: {
                 r: {

@@ -30,6 +30,11 @@
         <div id="dashboard-page" class="page">
             <header class="page-header">
                 <h1 class="header-title" data-page="home">The Book</h1>
+                <nav class="page-nav">
+                    <button class="page-nav-btn active" data-page="dashboard">Dashboard</button>
+                    <button class="page-nav-btn" data-page="library">Library</button>
+                    <button class="page-nav-btn" data-page="log">Log a Game</button>
+                </nav>
             </header>
 
             <!-- Awards Section -->
@@ -125,6 +130,11 @@
         <div id="library-page" class="page">
             <header class="page-header">
                 <h1 class="header-title" data-page="home">The Book</h1>
+                <nav class="page-nav">
+                    <button class="page-nav-btn" data-page="dashboard">Dashboard</button>
+                    <button class="page-nav-btn active" data-page="library">Library</button>
+                    <button class="page-nav-btn" data-page="log">Log a Game</button>
+                </nav>
             </header>
 
             <section id="library-section">
@@ -132,22 +142,22 @@
                 
                 <div class="library-tabs-row">
                     <div class="library-tabs">
-                        <button class="library-tab active" data-tab="games-library">Games</button>
-                        <button class="library-tab" data-tab="players-library">Players</button>
+                        <button class="library-tab active" data-tab="players-library">Players</button>
+                        <button class="library-tab" data-tab="games-library">Games</button>
                     </div>
                     <button class="skills-info-btn" onclick="openSkillsInfo()" title="Skill Info">?</button>
                 </div>
                 
-                <div id="games-library" class="library-content active">
+                <div id="players-library" class="library-content active">
+                    <div id="players-library-grid" class="players-library-grid"></div>
+                </div>
+                
+                <div id="games-library" class="library-content hidden">
                     <div id="bgg-loading" class="bgg-loading">
                         <div class="loading-spinner"></div>
                         <p>Loading game data from BoardGameGeek...</p>
                     </div>
                     <div id="games-library-grid" class="games-library-grid"></div>
-                </div>
-                
-                <div id="players-library" class="library-content hidden">
-                    <div id="players-library-grid" class="players-library-grid"></div>
                 </div>
             </section>
 
@@ -160,6 +170,11 @@
         <div id="log-page" class="page">
             <header class="page-header">
                 <h1 class="header-title" data-page="home">The Book</h1>
+                <nav class="page-nav">
+                    <button class="page-nav-btn" data-page="dashboard">Dashboard</button>
+                    <button class="page-nav-btn" data-page="library">Library</button>
+                    <button class="page-nav-btn active" data-page="log">Log a Game</button>
+                </nav>
             </header>
 
             <section id="log-section" class="card log-card">
@@ -332,19 +347,19 @@
                     <h4>How Skills Are Calculated</h4>
                     <div class="skills-algorithm">
                         <p><strong>1. Game Skill Weights</strong><br>
-                        Each game has skill weights set via "Edit Skills" in the Games tab. These define what skills the game tests.</p>
+                        Each game has skill weights (0-10) set via "Edit Skills" in the Games tab. These define what skills the game tests.</p>
                         
                         <p><strong>2. Dominance Per Game</strong><br>
                         For each game, your "dominance" is calculated as your wins divided by total wins in that game. If you have 4 wins and others have 6, your dominance is 40%.</p>
                         
                         <p><strong>3. Skill Points Earned</strong><br>
-                        You earn skill points based on dominance multiplied by the game's skill weights. Dominate a Planning-heavy game? You get more P points.</p>
+                        You earn skill points based on dominance multiplied by the game's skill weights. Dominate a luck-heavy game? You get more L points.</p>
                         
                         <p><strong>4. Average Across Games</strong><br>
                         Your skill scores are averaged across all games you've won. This measures how good you are at the games you play, not how many games you've played.</p>
                         
-                        <p><strong>5. Relative Comparison</strong><br>
-                        Final scores are normalized so the best player in each skill scores 100. Others are scaled proportionally. This creates clear separation between players.</p>
+                        <p><strong>5. Chart Scaling</strong><br>
+                        All player charts use the same scale based on the highest individual skill value. This allows direct visual comparison between players.</p>
                     </div>
                 </div>
             </div>

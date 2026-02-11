@@ -143,6 +143,42 @@ body {
     color: var(--primary);
 }
 
+/* Page Navigation */
+.page-nav {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    background: var(--surface);
+    padding: 0.5rem;
+    border-radius: 4px;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.page-nav-btn {
+    font-family: 'Cinzel', serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.page-nav-btn:hover {
+    color: var(--text);
+}
+
+.page-nav-btn.active {
+    background: var(--primary);
+    color: var(--background);
+}
+
 /* Cards */
 .card {
     background: var(--surface);

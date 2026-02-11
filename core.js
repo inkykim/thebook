@@ -57,6 +57,24 @@ function initNavigation() {
         });
     });
     
+    // Page navigation buttons (on dashboard, library, log pages)
+    const pageNavBtns = document.querySelectorAll('.page-nav-btn');
+    pageNavBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const page = btn.dataset.page;
+            if (page) {
+                // Update active states for all page nav buttons
+                document.querySelectorAll('.page-nav-btn').forEach(b => {
+                    b.classList.toggle('active', b.dataset.page === page);
+                });
+                switchPage(page);
+                if (page === 'log' && typeof updateSuggestions === 'function') {
+                    updateSuggestions();
+                }
+            }
+        });
+    });
+    
     // Header title click to go home
     const headerTitles = document.querySelectorAll('.header-title');
     headerTitles.forEach(title => {
