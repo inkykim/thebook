@@ -346,8 +346,18 @@ function renderLeaderboard() {
     const tbody = document.getElementById('leaderboard-body');
     if (!tbody) return;
     
-    const sortedPlayers = [...gameData.players]
-        .sort((a, b) => gameData.playerStats[b].wins - gameData.playerStats[a].wins);
+    // Use tiebreaker sorting: total wins, win rate, head-to-head
+    let sortedPlayers;
+    if (typeof window.sortPlayersWithTiebreakers === 'function') {
+        // Convert players to [name, stats] entries for the sorting function
+        const playerEntries = gameData.players.map(p => [p, gameData.playerStats[p]]);
+        const sortedEntries = window.sortPlayersWithTiebreakers(playerEntries, gameData.games || []);
+        sortedPlayers = sortedEntries.map(entry => entry[0]);
+    } else {
+        // Fallback to simple wins sort
+        sortedPlayers = [...gameData.players]
+            .sort((a, b) => gameData.playerStats[b].wins - gameData.playerStats[a].wins);
+    }
     
     tbody.innerHTML = sortedPlayers.map((player, index) => {
         const stats = gameData.playerStats[player];
