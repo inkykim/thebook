@@ -20,7 +20,7 @@
  *   thumbnail TEXT,
  *   -- Skill weights (0-10 scale) for player skill hexagon calculation
  *   skill_planning INTEGER DEFAULT 5,
- *   skill_management INTEGER DEFAULT 5,
+ *   skill_resourcing INTEGER DEFAULT 5,
  *   skill_negotiation INTEGER DEFAULT 0,
  *   skill_social INTEGER DEFAULT 5,
  *   skill_memory INTEGER DEFAULT 3,
@@ -30,7 +30,7 @@
  * 
  * -- To add skill columns to existing table:
  * -- ALTER TABLE bgg_cache ADD COLUMN skill_planning INTEGER DEFAULT 5;
- * -- ALTER TABLE bgg_cache ADD COLUMN skill_management INTEGER DEFAULT 5;
+ * -- ALTER TABLE bgg_cache ADD COLUMN skill_resourcing INTEGER DEFAULT 5;
  * -- ALTER TABLE bgg_cache ADD COLUMN skill_negotiation INTEGER DEFAULT 0;
  * -- ALTER TABLE bgg_cache ADD COLUMN skill_social INTEGER DEFAULT 5;
  * -- ALTER TABLE bgg_cache ADD COLUMN skill_memory INTEGER DEFAULT 3;
@@ -49,12 +49,12 @@
 
 // Skill attribute names and labels
 const SKILL_ATTRIBUTES = [
-    { key: 'planning', label: 'Planning', description: 'Strategic thinking, long-term planning, route optimization' },
-    { key: 'management', label: 'Management', description: 'Resource management, engine building, optimization' },
-    { key: 'negotiation', label: 'Negotiation', description: 'Trading, deal-making, diplomacy' },
-    { key: 'social', label: 'Social Awareness', description: 'Reading opponents, bluffing, social deduction' },
-    { key: 'memory', label: 'Memory', description: 'Card counting, remembering game state, pattern recognition' },
-    { key: 'luck', label: 'Luck', description: 'Dice rolling, card draws, random elements' }
+    { key: 'planning', label: 'Planning', abbrev: 'P', description: 'Strategic thinking, long-term planning' },
+    { key: 'resourcing', label: 'Resourcing', abbrev: 'R', description: 'Hand management, short-term optimization' },
+    { key: 'negotiation', label: 'Negotiation', abbrev: 'N', description: 'Trading, deal-making, diplomacy' },
+    { key: 'social', label: 'Social Awareness', abbrev: 'S', description: 'Reading opponents, bluffing' },
+    { key: 'memory', label: 'Memory', abbrev: 'M', description: 'Card counting, pattern recognition' },
+    { key: 'luck', label: 'Luck', abbrev: 'L', description: 'Dice rolling, card draws' }
 ];
 
 /**
@@ -96,7 +96,7 @@ async function fetchBGGCacheFromSupabase() {
                     // Skill weights (default to moderate values if not set)
                     skills: {
                         planning: row.skill_planning ?? 5,
-                        management: row.skill_management ?? 5,
+                        resourcing: row.skill_resourcing ?? row.skill_management ?? 5,
                         negotiation: row.skill_negotiation ?? 0,
                         social: row.skill_social ?? 5,
                         memory: row.skill_memory ?? 3,
@@ -141,7 +141,7 @@ async function saveBGGToSupabase(gameName, bggData) {
         // Include skill weights if provided
         if (bggData.skills) {
             updateData.skill_planning = bggData.skills.planning ?? 5;
-            updateData.skill_management = bggData.skills.management ?? 5;
+            updateData.skill_resourcing = bggData.skills.resourcing ?? 5;
             updateData.skill_negotiation = bggData.skills.negotiation ?? 0;
             updateData.skill_social = bggData.skills.social ?? 5;
             updateData.skill_memory = bggData.skills.memory ?? 3;
@@ -178,7 +178,7 @@ async function updateGameSkills(gameName, skills) {
             .from('bgg_cache')
             .update({
                 skill_planning: skills.planning ?? 5,
-                skill_management: skills.management ?? 5,
+                skill_resourcing: skills.resourcing ?? 5,
                 skill_negotiation: skills.negotiation ?? 0,
                 skill_social: skills.social ?? 5,
                 skill_memory: skills.memory ?? 3,
@@ -385,55 +385,151 @@ function renderGamesLibrary(gameTypes, bggData, localStats) {
 }
 
 /**
- * Calculate skill profile for a player based on games they've won
- * @param {string} playerName - Player name
- * @param {Object} playerStats - Player statistics including gamesWon array
+ * Calculate skill profiles for ALL players based on relative performance
+ * 
+ * APPROACH: Average skill efficiency per game played
+ * 
+ * The problem with accumulating raw points: A player who plays many games accumulates
+ * more points than someone who plays fewer games, even if the latter dominates their games.
+ * 
+ * Solution: Calculate AVERAGE skill points per game played.
+ * This answers: "How good are you at the games you play?" not "How many games have you played?"
+ * 
+ * How it works:
+ * 1. Each game contributes up to 30 skill points (normalized), distributed by skill weights
+ * 2. For each game, a player's "dominance" = their wins / total wins in that game
+ * 3. Player earns: dominance × game's skill points for each skill
+ * 4. AVERAGE these across all games the player has won at least once
+ * 5. Normalize to 0-100 scale: best average in each skill = 100
+ * 
+ * Example:
+ * - Lars plays 5 games, dominates them (avg 60% of wins) → high average skill points
+ * - Ink plays 10 games, mediocre at most (avg 25% of wins) → lower average
+ * - Lars's hexagon will be larger despite playing fewer games
+ * 
+ * @param {Object} playerGameStats - Per-player, per-game stats { player: { game: { wins, played } } }
  * @param {Object} bggData - BGG data cache with skill weights
- * @returns {Object} Skill profile with normalized scores (0-100)
+ * @returns {Object} Map of playerName -> skill profile
  */
-function calculatePlayerSkills(playerName, playerStats, bggData) {
-    const stats = playerStats[playerName];
-    if (!stats || !stats.gamesWon || stats.gamesWon.length === 0) {
-        return null;
-    }
+function calculateAllPlayerSkills(playerGameStats, bggData) {
+    const POINTS_PER_GAME = 30; // Each game contributes 30 total skill points max
+    const skillKeys = ['planning', 'resourcing', 'negotiation', 'social', 'memory', 'luck'];
     
-    // Aggregate skill weights from all games won
-    const skillTotals = {
-        planning: 0,
-        management: 0,
-        negotiation: 0,
-        social: 0,
-        memory: 0,
-        luck: 0
-    };
+    const players = Object.keys(playerGameStats);
     
-    let gamesWithSkillData = 0;
+    // Track each player's skill totals AND count of games they've won in
+    const playerData = {};
+    players.forEach(player => {
+        playerData[player] = {
+            skillTotals: {},
+            gamesWithWins: 0 // Number of games (with skill data) where this player has at least 1 win
+        };
+        skillKeys.forEach(skill => {
+            playerData[player].skillTotals[skill] = 0;
+        });
+    });
     
-    stats.gamesWon.forEach(gameName => {
-        const bggKey = gameName.toLowerCase().trim();
-        const gameData = bggData[bggKey];
+    // For each game with skill data, distribute points based on relative performance
+    for (const [bggKey, gameData] of Object.entries(bggData)) {
+        if (!gameData || !gameData.skills) continue;
         
-        if (gameData && gameData.skills) {
-            gamesWithSkillData++;
-            Object.keys(skillTotals).forEach(skill => {
-                skillTotals[skill] += (gameData.skills[skill] || 0);
+        const gameSkills = gameData.skills;
+        
+        // Calculate total skill weight for this game (to normalize to POINTS_PER_GAME)
+        const totalSkillWeight = skillKeys.reduce((sum, skill) => sum + (gameSkills[skill] || 0), 0);
+        if (totalSkillWeight === 0) continue;
+        
+        // Get all players' wins for this specific game
+        const playerWinsInGame = {};
+        let totalWinsInGame = 0;
+        
+        players.forEach(player => {
+            const gameStats = playerGameStats[player];
+            // Check various case variations of the game name
+            const gameKey = Object.keys(gameStats || {}).find(
+                g => g.toLowerCase().trim() === bggKey.toLowerCase().trim()
+            );
+            
+            if (gameKey && gameStats[gameKey]) {
+                const wins = gameStats[gameKey].wins || 0;
+                if (wins > 0) {
+                    playerWinsInGame[player] = wins;
+                    totalWinsInGame += wins;
+                }
+            }
+        });
+        
+        // Skip if no one has won this game
+        if (totalWinsInGame === 0) continue;
+        
+        // Award skill points to each player who has won this game
+        for (const [player, wins] of Object.entries(playerWinsInGame)) {
+            const dominance = wins / totalWinsInGame; // e.g., 3 wins out of 10 total = 0.3 (30% dominance)
+            
+            // This player has wins in this game, count it
+            playerData[player].gamesWithWins++;
+            
+            skillKeys.forEach(skill => {
+                // Normalize game's skill weight to POINTS_PER_GAME total, then multiply by dominance
+                const maxSkillPoints = (gameSkills[skill] || 0) / totalSkillWeight * POINTS_PER_GAME;
+                playerData[player].skillTotals[skill] += maxSkillPoints * dominance;
             });
         }
-    });
-    
-    if (gamesWithSkillData === 0) {
-        return null;
     }
     
-    // Calculate average and normalize to 0-100 scale
-    const skillProfile = {};
-    Object.keys(skillTotals).forEach(skill => {
-        // Average out of 10, then scale to percentage
-        const average = skillTotals[skill] / gamesWithSkillData;
-        skillProfile[skill] = Math.round(average * 10); // Convert 0-10 to 0-100
+    // Calculate AVERAGE skill points per game (key change for fair comparison)
+    const playerAverageSkills = {};
+    players.forEach(player => {
+        const data = playerData[player];
+        
+        if (data.gamesWithWins === 0) {
+            playerAverageSkills[player] = null;
+            return;
+        }
+        
+        playerAverageSkills[player] = {};
+        skillKeys.forEach(skill => {
+            // Average skill points per game where they have wins
+            playerAverageSkills[player][skill] = data.skillTotals[skill] / data.gamesWithWins;
+        });
     });
     
-    return skillProfile;
+    // Find max average for each skill across all players (for normalization)
+    const maxPerSkill = {};
+    skillKeys.forEach(skill => {
+        const values = players
+            .filter(p => playerAverageSkills[p] !== null)
+            .map(p => playerAverageSkills[p][skill]);
+        maxPerSkill[skill] = Math.max(...values, 0.001); // Avoid division by zero
+    });
+    
+    // Normalize to 0-100 scale: best average in each skill = 100
+    const playerSkillProfiles = {};
+    players.forEach(player => {
+        if (playerAverageSkills[player] === null) {
+            playerSkillProfiles[player] = null;
+            return;
+        }
+        
+        playerSkillProfiles[player] = {};
+        skillKeys.forEach(skill => {
+            playerSkillProfiles[player][skill] = Math.round(
+                (playerAverageSkills[player][skill] / maxPerSkill[skill]) * 100
+            );
+        });
+    });
+    
+    return playerSkillProfiles;
+}
+
+/**
+ * Get a single player's skill profile from pre-calculated profiles
+ * @param {string} playerName - Player name
+ * @param {Object} allPlayerSkills - Pre-calculated skill profiles for all players
+ * @returns {Object|null} Skill profile or null if not available
+ */
+function getPlayerSkills(playerName, allPlayerSkills) {
+    return allPlayerSkills[playerName] || null;
 }
 
 /**
@@ -454,17 +550,15 @@ function renderPlayerSkillChart(canvasId, skills, playerName) {
     }
     
     const data = {
-        labels: SKILL_ATTRIBUTES.map(attr => attr.label),
+        labels: SKILL_ATTRIBUTES.map(attr => attr.abbrev),
         datasets: [{
             label: playerName,
             data: SKILL_ATTRIBUTES.map(attr => skills[attr.key] || 0),
             fill: true,
-            backgroundColor: 'rgba(139, 115, 85, 0.2)',
+            backgroundColor: 'rgba(139, 115, 85, 0.3)',
             borderColor: 'rgba(139, 115, 85, 1)',
-            pointBackgroundColor: 'rgba(139, 115, 85, 1)',
-            pointBorderColor: '#1e1e1e',
-            pointHoverBackgroundColor: '#fff',
-            pointHoverBorderColor: 'rgba(99, 102, 241, 1)',
+            pointRadius: 0,
+            pointHoverRadius: 0,
             borderWidth: 2
         }]
     };
@@ -476,29 +570,19 @@ function renderPlayerSkillChart(canvasId, skills, playerName) {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: {
-                    display: false
-                }
+                legend: { display: false },
+                tooltip: { enabled: false }
             },
             scales: {
                 r: {
                     beginAtZero: true,
                     max: 100,
-                    ticks: {
-                        stepSize: 25,
-                        color: '#7a7468',
-                        backdropColor: 'transparent',
-                        font: { size: 9 }
-                    },
-                    grid: {
-                        color: '#2a2622'
-                    },
-                    angleLines: {
-                        color: '#2a2622'
-                    },
+                    ticks: { display: false },
+                    grid: { color: '#2a2622' },
+                    angleLines: { color: '#2a2622' },
                     pointLabels: {
                         color: '#c9c2b5',
-                        font: { size: 10, weight: '500' }
+                        font: { size: 12, weight: '600' }
                     }
                 }
             }
@@ -660,6 +744,9 @@ function renderPlayersLibrary(playerStats, playerGameStats, bggData) {
     // Get games from global gameData for head-to-head calculations
     const games = window.gameData?.games || [];
     
+    // Calculate all player skills at once (they're relative to each other)
+    const allPlayerSkills = calculateAllPlayerSkills(playerGameStats || {}, cachedBggData);
+    
     // Sort players with tiebreakers: total wins, win rate, head-to-head
     const sortedPlayers = sortPlayersWithTiebreakers(
         Object.entries(playerStats),
@@ -692,8 +779,8 @@ function renderPlayersLibrary(playerStats, playerGameStats, bggData) {
         // Create unique canvas ID for this player
         const canvasId = `skill-chart-${playerName.replace(/[^a-zA-Z0-9]/g, '-')}`;
         
-        // Calculate player skills
-        const playerSkills = calculatePlayerSkills(playerName, playerStats, cachedBggData);
+        // Get pre-calculated player skills (relative to other players)
+        const playerSkills = getPlayerSkills(playerName, allPlayerSkills);
         const hasSkills = playerSkills !== null;
         
         return `
@@ -757,7 +844,7 @@ function renderPlayersLibrary(playerStats, playerGameStats, bggData) {
     setTimeout(() => {
         sortedPlayers.forEach(([playerName, stats]) => {
             const canvasId = `skill-chart-${playerName.replace(/[^a-zA-Z0-9]/g, '-')}`;
-            const playerSkills = calculatePlayerSkills(playerName, playerStats, cachedBggData);
+            const playerSkills = getPlayerSkills(playerName, allPlayerSkills);
             if (playerSkills) {
                 renderPlayerSkillChart(canvasId, playerSkills, playerName);
             }
@@ -879,7 +966,7 @@ function openSkillModal(gameName) {
     
     const defaultSkills = {
         planning: 5,
-        management: 5,
+        resourcing: 5,
         negotiation: 0,
         social: 5,
         memory: 3,
@@ -939,15 +1026,15 @@ function updateSkillPreviewChart() {
     }
     
     const data = {
-        labels: SKILL_ATTRIBUTES.map(attr => attr.label),
+        labels: SKILL_ATTRIBUTES.map(attr => attr.abbrev),
         datasets: [{
             label: 'Skills',
             data: SKILL_ATTRIBUTES.map(attr => skills[attr.key] || 0),
             fill: true,
-            backgroundColor: 'rgba(139, 115, 85, 0.2)',
+            backgroundColor: 'rgba(139, 115, 85, 0.3)',
             borderColor: 'rgba(139, 115, 85, 1)',
-            pointBackgroundColor: 'rgba(139, 115, 85, 1)',
-            pointBorderColor: '#1e1e1e',
+            pointRadius: 0,
+            pointHoverRadius: 0,
             borderWidth: 2
         }]
     };
@@ -958,22 +1045,17 @@ function updateSkillPreviewChart() {
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            plugins: { legend: { display: false } },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
             scales: {
                 r: {
                     beginAtZero: true,
                     max: 100,
-                    ticks: {
-                        stepSize: 25,
-                        color: '#7a7468',
-                        backdropColor: 'transparent',
-                        font: { size: 10 }
-                    },
+                    ticks: { display: false },
                     grid: { color: '#2a2622' },
                     angleLines: { color: '#2a2622' },
                     pointLabels: {
                         color: '#c9c2b5',
-                        font: { size: 11, weight: '500' }
+                        font: { size: 12, weight: '600' }
                     }
                 }
             }
@@ -1053,6 +1135,26 @@ function handleSkillSliderChange(skillKey) {
     updateSkillPreviewChart();
 }
 
+/**
+ * Open the skills info popup
+ */
+function openSkillsInfo() {
+    const popup = document.getElementById('skills-info-popup');
+    if (popup) {
+        popup.classList.add('active');
+    }
+}
+
+/**
+ * Close the skills info popup
+ */
+function closeSkillsInfo() {
+    const popup = document.getElementById('skills-info-popup');
+    if (popup) {
+        popup.classList.remove('active');
+    }
+}
+
 // Initialize modal close on backdrop click
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('skill-modal');
@@ -1060,6 +1162,15 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 closeSkillModal();
+            }
+        });
+    }
+    
+    const popup = document.getElementById('skills-info-popup');
+    if (popup) {
+        popup.addEventListener('click', (e) => {
+            if (e.target === popup) {
+                closeSkillsInfo();
             }
         });
     }
@@ -1077,3 +1188,5 @@ window.saveGameSkills = saveGameSkills;
 window.handleSkillSliderChange = handleSkillSliderChange;
 window.updateGameSkills = updateGameSkills;
 window.sortPlayersWithTiebreakers = sortPlayersWithTiebreakers;
+window.openSkillsInfo = openSkillsInfo;
+window.closeSkillsInfo = closeSkillsInfo;

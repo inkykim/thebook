@@ -130,9 +130,12 @@
             <section id="library-section">
                 <h2 class="section-title">Library</h2>
                 
-                <div class="library-tabs">
-                    <button class="library-tab active" data-tab="games-library">Games</button>
-                    <button class="library-tab" data-tab="players-library">Players</button>
+                <div class="library-tabs-row">
+                    <div class="library-tabs">
+                        <button class="library-tab active" data-tab="games-library">Games</button>
+                        <button class="library-tab" data-tab="players-library">Players</button>
+                    </div>
+                    <button class="skills-info-btn" onclick="openSkillsInfo()" title="Skill Info">?</button>
                 </div>
                 
                 <div id="games-library" class="library-content active">
@@ -216,11 +219,11 @@
                     </div>
                     <div class="skill-slider-group">
                         <div class="skill-slider-header">
-                            <span class="skill-slider-label">Management</span>
-                            <span id="skill-management-value" class="skill-slider-value">5</span>
+                            <span class="skill-slider-label">Resourcing</span>
+                            <span id="skill-resourcing-value" class="skill-slider-value">5</span>
                         </div>
-                        <div class="skill-slider-description">Resource management, optimization</div>
-                        <input type="range" id="skill-management" class="skill-slider" min="0" max="10" value="5" oninput="handleSkillSliderChange('management')">
+                        <div class="skill-slider-description">Hand management, short-term optimization</div>
+                        <input type="range" id="skill-resourcing" class="skill-slider" min="0" max="10" value="5" oninput="handleSkillSliderChange('resourcing')">
                     </div>
                     <div class="skill-slider-group">
                         <div class="skill-slider-header">
@@ -235,7 +238,7 @@
                             <span class="skill-slider-label">Social Awareness</span>
                             <span id="skill-social-value" class="skill-slider-value">5</span>
                         </div>
-                        <div class="skill-slider-description">Reading opponents, bluffing, deduction</div>
+                        <div class="skill-slider-description">Reading opponents, bluffing</div>
                         <input type="range" id="skill-social" class="skill-slider" min="0" max="10" value="5" oninput="handleSkillSliderChange('social')">
                     </div>
                     <div class="skill-slider-group">
@@ -251,7 +254,7 @@
                             <span class="skill-slider-label">Luck</span>
                             <span id="skill-luck-value" class="skill-slider-value">5</span>
                         </div>
-                        <div class="skill-slider-description">Dice rolling, card draws, random elements</div>
+                        <div class="skill-slider-description">Dice rolling, card draws</div>
                         <input type="range" id="skill-luck" class="skill-slider" min="0" max="10" value="5" oninput="handleSkillSliderChange('luck')">
                     </div>
                 </div>
@@ -265,6 +268,85 @@
             <div class="skill-modal-footer">
                 <button class="skill-modal-cancel" onclick="closeSkillModal()">Cancel</button>
                 <button class="skill-modal-save" onclick="saveGameSkills()">Save Skills</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skills Info Popup -->
+    <div id="skills-info-popup" class="skills-info-popup">
+        <div class="skills-info-content">
+            <div class="skills-info-header">
+                <h3>Skill Profiles</h3>
+                <button class="skills-info-close" onclick="closeSkillsInfo()">&times;</button>
+            </div>
+            <div class="skills-info-body">
+                <div class="skills-info-section">
+                    <h4>The Six Attributes</h4>
+                    <div class="skill-info-list">
+                        <div class="skill-info-item">
+                            <span class="skill-info-letter">P</span>
+                            <div class="skill-info-details">
+                                <strong>Planning</strong>
+                                <p>Strategic thinking, long-term planning</p>
+                            </div>
+                        </div>
+                        <div class="skill-info-item">
+                            <span class="skill-info-letter">R</span>
+                            <div class="skill-info-details">
+                                <strong>Resourcing</strong>
+                                <p>Hand management, short-term optimization</p>
+                            </div>
+                        </div>
+                        <div class="skill-info-item">
+                            <span class="skill-info-letter">N</span>
+                            <div class="skill-info-details">
+                                <strong>Negotiation</strong>
+                                <p>Trading, deal-making, diplomacy</p>
+                            </div>
+                        </div>
+                        <div class="skill-info-item">
+                            <span class="skill-info-letter">S</span>
+                            <div class="skill-info-details">
+                                <strong>Social Awareness</strong>
+                                <p>Reading opponents, bluffing</p>
+                            </div>
+                        </div>
+                        <div class="skill-info-item">
+                            <span class="skill-info-letter">M</span>
+                            <div class="skill-info-details">
+                                <strong>Memory</strong>
+                                <p>Card counting, pattern recognition</p>
+                            </div>
+                        </div>
+                        <div class="skill-info-item">
+                            <span class="skill-info-letter">L</span>
+                            <div class="skill-info-details">
+                                <strong>Luck</strong>
+                                <p>Dice rolling, card draws</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="skills-info-section">
+                    <h4>How Skills Are Calculated</h4>
+                    <div class="skills-algorithm">
+                        <p><strong>1. Game Skill Weights</strong><br>
+                        Each game has skill weights set via "Edit Skills" in the Games tab. These define what skills the game tests.</p>
+                        
+                        <p><strong>2. Dominance Per Game</strong><br>
+                        For each game, your "dominance" is calculated as your wins divided by total wins in that game. If you have 4 wins and others have 6, your dominance is 40%.</p>
+                        
+                        <p><strong>3. Skill Points Earned</strong><br>
+                        You earn skill points based on dominance multiplied by the game's skill weights. Dominate a Planning-heavy game? You get more P points.</p>
+                        
+                        <p><strong>4. Average Across Games</strong><br>
+                        Your skill scores are averaged across all games you've won. This measures how good you are at the games you play, not how many games you've played.</p>
+                        
+                        <p><strong>5. Relative Comparison</strong><br>
+                        Final scores are normalized so the best player in each skill scores 100. Others are scaled proportionally. This creates clear separation between players.</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
