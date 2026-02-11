@@ -89,18 +89,14 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...';
 
 | Award | Description |
 |-------|-------------|
-| **The Dominator** 👑 | Most total wins |
-| **The Collector** 🎯 | Won most different game types |
-| **The Consistent** 📈 | Highest win rate (min 5 games) |
-| **The Socialite** 🎉 | Played the most games |
-| **The Specialist** 🔬 | Best win rate in single game (min 3 plays) |
-| **The Streak King** 🔥 | Longest winning streak ever |
-| **The Underdog** 💪 | Most wins in 4+ player games |
-| **The Variety Show** 🎲 | Played most different games |
-| **The Hot Hand** ✨ | Best recent performance |
-| **The Iron Throne** ⚔️ | Longest active winning streak |
-| **The Comeback Kid** 🔄 | Most wins after a loss |
-| **The Nemesis** 😈 | Best head-to-head record |
+| **The Dominator** ♕ | Most total wins |
+| **The Collector** ◆ | Won most different game types |
+| **The Consistent** ↑ | Highest win rate (min 5 games) |
+| **The Specialist** ⚗ | Best win rate in single game (min 3 plays) |
+| **The Streak King** ☼ | Longest winning streak ever |
+| **The Hot Hand** ✦ | Best recent performance |
+| **The Iron Throne** ⚔ | Longest active winning streak |
+| **The Loser** ☹ | Longest losing streak |
 
 ### 📊 Visualizations
 

@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>the book</title>
+    <title>The Book</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Crimson+Text:wght@400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
@@ -14,163 +14,190 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>The Book</h1>
-            <p class="subtitle">Where Victories Are Remembered and Excuses Are Forgotten</p>
-            <nav class="header-nav">
-                <button class="header-nav-btn active" data-section="main">Dashboard</button>
-                <button class="header-nav-btn" data-section="library">Library</button>
-                <button class="header-nav-btn" id="nav-log-game">Log a Game</button>
-            </nav>
-        </header>
+        <!-- Home Page -->
+        <div id="home-page" class="page active">
+            <div class="home-content">
+                <h1 class="home-title">The Book</h1>
+                <nav class="home-nav">
+                    <button class="home-nav-btn" data-page="dashboard">Dashboard</button>
+                    <button class="home-nav-btn" data-page="library">Library</button>
+                    <button class="home-nav-btn" data-page="log">Log a Game</button>
+                </nav>
+            </div>
 
-        <!-- Log Game Section -->
-        <section id="log-section" class="card log-card hidden">
-            <h2 class="log-title">🎲 Log a Game</h2>
-            <div id="log-form" class="log-form">
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="game-name">Game</label>
-                        <input type="text" id="game-name" placeholder="e.g. Catan" list="game-suggestions">
-                        <datalist id="game-suggestions"></datalist>
+            <footer>
+                <p>made for the boys by @inkykim</p>
+            </footer>
+        </div>
+
+        <!-- Dashboard Page -->
+        <div id="dashboard-page" class="page">
+            <header class="page-header">
+                <h1 class="header-title" data-page="home">The Book</h1>
+            </header>
+
+            <!-- Awards Section -->
+            <section id="awards-section" class="hidden">
+                <h2 class="section-title">Awards</h2>
+                <div id="awards-grid" class="awards-grid">
+                    <!-- Awards will be populated by JavaScript -->
+                </div>
+            </section>
+
+            <!-- Stats Overview -->
+            <section id="stats-section" class="hidden">
+                <h2 class="section-title">Statistics</h2>
+                <div class="stats-overview">
+                    <div class="stat-card">
+                        <span class="stat-number" id="total-games">0</span>
+                        <span class="stat-label">Total Games</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="total-players">0</span>
+                        <span class="stat-label">Players</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="unique-games">0</span>
+                        <span class="stat-label">Game Types</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-number" id="total-sessions">0</span>
+                        <span class="stat-label">Sessions</span>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <h3>Wins by Player</h3>
+                        <canvas id="wins-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Win Rate by Player</h3>
+                        <canvas id="winrate-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Games Played Distribution</h3>
+                        <canvas id="games-distribution-chart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Most Popular Games</h3>
+                        <canvas id="popular-games-chart"></canvas>
+                    </div>
+                    <div class="chart-card full-width">
+                        <h3>Wins Over Time</h3>
+                        <canvas id="timeline-chart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Leaderboard Section -->
+            <section id="leaderboard-section" class="hidden">
+                <h2 class="section-title">Leaderboard</h2>
+                <div class="leaderboard-container">
+                    <table id="leaderboard-table">
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Player</th>
+                                <th>Wins</th>
+                                <th>Games</th>
+                                <th>Win Rate</th>
+                                <th>Streak</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-body">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Game History -->
+            <section id="history-section" class="hidden">
+                <div class="section-header">
+                    <h2 class="section-title">Game Log</h2>
+                    <button id="toggle-edit-mode" class="btn btn-secondary btn-sm">Edit</button>
+                </div>
+                <div id="game-history" class="game-history">
+                </div>
+            </section>
+
+            <footer>
+                <p>made for the boys by @inkykim</p>
+            </footer>
+        </div>
+
+        <!-- Library Page -->
+        <div id="library-page" class="page">
+            <header class="page-header">
+                <h1 class="header-title" data-page="home">The Book</h1>
+            </header>
+
+            <section id="library-section">
+                <h2 class="section-title">Library</h2>
+                
+                <div class="library-tabs">
+                    <button class="library-tab active" data-tab="games-library">Games</button>
+                    <button class="library-tab" data-tab="players-library">Players</button>
+                </div>
+                
+                <div id="games-library" class="library-content active">
+                    <div id="bgg-loading" class="bgg-loading">
+                        <div class="loading-spinner"></div>
+                        <p>Loading game data from BoardGameGeek...</p>
+                    </div>
+                    <div id="games-library-grid" class="games-library-grid"></div>
+                </div>
+                
+                <div id="players-library" class="library-content hidden">
+                    <div id="players-library-grid" class="players-library-grid"></div>
+                </div>
+            </section>
+
+            <footer>
+                <p>made for the boys by @inkykim</p>
+            </footer>
+        </div>
+
+        <!-- Log Game Page -->
+        <div id="log-page" class="page">
+            <header class="page-header">
+                <h1 class="header-title" data-page="home">The Book</h1>
+            </header>
+
+            <section id="log-section" class="card log-card">
+                <h2 class="log-title">Log a Game</h2>
+                <div id="log-form" class="log-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="game-name">Game</label>
+                            <input type="text" id="game-name" placeholder="e.g. Catan" list="game-suggestions">
+                            <datalist id="game-suggestions"></datalist>
+                        </div>
+                        <div class="form-group">
+                            <label for="game-winner">Winner</label>
+                            <input type="text" id="game-winner" placeholder="e.g. lars" list="player-suggestions">
+                            <datalist id="player-suggestions"></datalist>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="game-winner">Winner</label>
-                        <input type="text" id="game-winner" placeholder="e.g. lars" list="player-suggestions">
-                        <datalist id="player-suggestions"></datalist>
+                        <label>Players</label>
+                        <div id="player-chips" class="player-chips"></div>
+                        <div class="player-input-row">
+                            <input type="text" id="add-player-input" placeholder="Add player..." list="player-suggestions">
+                            <button id="add-player-btn" class="btn btn-secondary btn-sm">Add</button>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button id="save-game" class="btn btn-primary">Save Game</button>
+                        <button id="cancel-log" class="btn btn-secondary">Cancel</button>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Players</label>
-                    <div id="player-chips" class="player-chips"></div>
-                    <div class="player-input-row">
-                        <input type="text" id="add-player-input" placeholder="Add player..." list="player-suggestions">
-                        <button id="add-player-btn" class="btn btn-secondary btn-sm">Add</button>
-                    </div>
-                </div>
-                <div class="form-actions">
-                    <button id="save-game" class="btn btn-primary">Save Game</button>
-                    <button id="cancel-log" class="btn btn-secondary">Cancel</button>
-                </div>
-            </div>
-            <div id="log-status"></div>
-        </section>
+                <div id="log-status"></div>
+            </section>
 
-        <!-- Awards Section -->
-        <section id="awards-section" class="hidden">
-            <h2 class="section-title">🏆 Awards</h2>
-            <div id="awards-grid" class="awards-grid">
-                <!-- Awards will be populated by JavaScript -->
-            </div>
-        </section>
-
-        <!-- Stats Overview -->
-        <section id="stats-section" class="hidden">
-            <h2 class="section-title">📊 Statistics</h2>
-            <div class="stats-overview">
-                <div class="stat-card">
-                    <span class="stat-number" id="total-games">0</span>
-                    <span class="stat-label">Total Games</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-number" id="total-players">0</span>
-                    <span class="stat-label">Players</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-number" id="unique-games">0</span>
-                    <span class="stat-label">Game Types</span>
-                </div>
-                <div class="stat-card">
-                    <span class="stat-number" id="total-sessions">0</span>
-                    <span class="stat-label">Sessions</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- Charts Section -->
-        <section id="charts-section" class="hidden">
-            <h2 class="section-title">📈 Visualizations</h2>
-            <div class="charts-grid">
-                <div class="chart-card">
-                    <h3>Wins by Player</h3>
-                    <canvas id="wins-chart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>Win Rate by Player</h3>
-                    <canvas id="winrate-chart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>Games Played Distribution</h3>
-                    <canvas id="games-distribution-chart"></canvas>
-                </div>
-                <div class="chart-card">
-                    <h3>Most Popular Games</h3>
-                    <canvas id="popular-games-chart"></canvas>
-                </div>
-                <div class="chart-card full-width">
-                    <h3>Wins Over Time</h3>
-                    <canvas id="timeline-chart"></canvas>
-                </div>
-            </div>
-        </section>
-
-        <!-- Leaderboard Section -->
-        <section id="leaderboard-section" class="hidden">
-            <h2 class="section-title">🥇 Leaderboard</h2>
-            <div class="leaderboard-container">
-                <table id="leaderboard-table">
-                    <thead>
-                        <tr>
-                            <th>Rank</th>
-                            <th>Player</th>
-                            <th>Wins</th>
-                            <th>Games</th>
-                            <th>Win Rate</th>
-                            <th>Streak</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboard-body">
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Game History -->
-        <section id="history-section" class="hidden">
-            <div class="section-header">
-                <h2 class="section-title">📜 Game Log</h2>
-                <button id="toggle-edit-mode" class="btn btn-secondary btn-sm">Edit</button>
-            </div>
-            <div id="game-history" class="game-history">
-            </div>
-        </section>
-
-        <!-- Library Section (BGG Data) -->
-        <section id="library-section" class="hidden">
-            <h2 class="section-title">📚 Game Library</h2>
-            <p class="section-subtitle">Board game information from BoardGameGeek</p>
-            
-            <div class="library-tabs">
-                <button class="library-tab active" data-tab="games-library">Games</button>
-                <button class="library-tab" data-tab="players-library">Players</button>
-            </div>
-            
-            <div id="games-library" class="library-content active">
-                <div id="bgg-loading" class="bgg-loading">
-                    <div class="loading-spinner"></div>
-                    <p>Loading game data from BoardGameGeek...</p>
-                </div>
-                <div id="games-library-grid" class="games-library-grid"></div>
-            </div>
-            
-            <div id="players-library" class="library-content hidden">
-                <div id="players-library-grid" class="players-library-grid"></div>
-            </div>
-        </section>
-
-        <footer>
-            <p>phidelts | @inkykim on github</p>
-        </footer>
+            <footer>
+                <p>made for the boys by @inkykim</p>
+            </footer>
+        </div>
     </div>
 
     <!-- Skill Editing Modal -->
@@ -246,9 +273,21 @@
         </div>
     </div>
 
+    <!-- Configuration -->
     <script src="config.js"></script>
+    
+    <!-- Core module (shared state, navigation, data loading) -->
+    <script src="core.js"></script>
+    
+    <!-- Utility modules -->
     <script src="awards.js"></script>
-    <script src="bgg.js"></script>
+    
+    <!-- Page modules -->
+    <script src="library.js"></script>
+    <script src="dashboard.js"></script>
+    <script src="log.js"></script>
+    
+    <!-- Application entry point (must be last) -->
     <script src="app.js"></script>
 </body>
 </html>

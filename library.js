@@ -459,10 +459,10 @@ function renderPlayerSkillChart(canvasId, skills, playerName) {
             label: playerName,
             data: SKILL_ATTRIBUTES.map(attr => skills[attr.key] || 0),
             fill: true,
-            backgroundColor: 'rgba(99, 102, 241, 0.2)',
-            borderColor: 'rgba(99, 102, 241, 1)',
-            pointBackgroundColor: 'rgba(99, 102, 241, 1)',
-            pointBorderColor: '#fff',
+            backgroundColor: 'rgba(139, 115, 85, 0.2)',
+            borderColor: 'rgba(139, 115, 85, 1)',
+            pointBackgroundColor: 'rgba(139, 115, 85, 1)',
+            pointBorderColor: '#1e1e1e',
             pointHoverBackgroundColor: '#fff',
             pointHoverBorderColor: 'rgba(99, 102, 241, 1)',
             borderWidth: 2
@@ -486,18 +486,18 @@ function renderPlayerSkillChart(canvasId, skills, playerName) {
                     max: 100,
                     ticks: {
                         stepSize: 25,
-                        color: '#94a3b8',
+                        color: '#7a7468',
                         backdropColor: 'transparent',
                         font: { size: 9 }
                     },
                     grid: {
-                        color: '#334155'
+                        color: '#2a2622'
                     },
                     angleLines: {
-                        color: '#334155'
+                        color: '#2a2622'
                     },
                     pointLabels: {
-                        color: '#f1f5f9',
+                        color: '#c9c2b5',
                         font: { size: 10, weight: '500' }
                     }
                 }
@@ -809,10 +809,10 @@ function updateSkillPreviewChart() {
             label: 'Skills',
             data: SKILL_ATTRIBUTES.map(attr => skills[attr.key] || 0),
             fill: true,
-            backgroundColor: 'rgba(99, 102, 241, 0.2)',
-            borderColor: 'rgba(99, 102, 241, 1)',
-            pointBackgroundColor: 'rgba(99, 102, 241, 1)',
-            pointBorderColor: '#fff',
+            backgroundColor: 'rgba(139, 115, 85, 0.2)',
+            borderColor: 'rgba(139, 115, 85, 1)',
+            pointBackgroundColor: 'rgba(139, 115, 85, 1)',
+            pointBorderColor: '#1e1e1e',
             borderWidth: 2
         }]
     };
@@ -830,14 +830,14 @@ function updateSkillPreviewChart() {
                     max: 100,
                     ticks: {
                         stepSize: 25,
-                        color: '#94a3b8',
+                        color: '#7a7468',
                         backdropColor: 'transparent',
                         font: { size: 10 }
                     },
-                    grid: { color: '#334155' },
-                    angleLines: { color: '#334155' },
+                    grid: { color: '#2a2622' },
+                    angleLines: { color: '#2a2622' },
                     pointLabels: {
-                        color: '#f1f5f9',
+                        color: '#c9c2b5',
                         font: { size: 11, weight: '500' }
                     }
                 }
