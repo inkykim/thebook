@@ -17,15 +17,17 @@
         <header>
             <h1>The Book</h1>
             <p class="subtitle">Where Victories Are Remembered and Excuses Are Forgotten</p>
+            <nav class="header-nav">
+                <button class="header-nav-btn active" data-section="main">Dashboard</button>
+                <button class="header-nav-btn" data-section="library">Library</button>
+                <button class="header-nav-btn" id="nav-log-game">Log a Game</button>
+            </nav>
         </header>
 
         <!-- Log Game Section -->
-        <section id="log-section" class="card log-card">
-            <div class="log-header">
-                <h2>🎲 Log a Game</h2>
-                <button id="toggle-log-form" class="btn btn-primary">+ Log Game</button>
-            </div>
-            <div id="log-form" class="log-form hidden">
+        <section id="log-section" class="card log-card hidden">
+            <h2 class="log-title">🎲 Log a Game</h2>
+            <div id="log-form" class="log-form">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="game-name">Game</label>
@@ -143,13 +145,110 @@
             </div>
         </section>
 
+        <!-- Library Section (BGG Data) -->
+        <section id="library-section" class="hidden">
+            <h2 class="section-title">📚 Game Library</h2>
+            <p class="section-subtitle">Board game information from BoardGameGeek</p>
+            
+            <div class="library-tabs">
+                <button class="library-tab active" data-tab="games-library">Games</button>
+                <button class="library-tab" data-tab="players-library">Players</button>
+            </div>
+            
+            <div id="games-library" class="library-content active">
+                <div id="bgg-loading" class="bgg-loading">
+                    <div class="loading-spinner"></div>
+                    <p>Loading game data from BoardGameGeek...</p>
+                </div>
+                <div id="games-library-grid" class="games-library-grid"></div>
+            </div>
+            
+            <div id="players-library" class="library-content hidden">
+                <div id="players-library-grid" class="players-library-grid"></div>
+            </div>
+        </section>
+
         <footer>
             <p>phidelts | @inkykim on github</p>
         </footer>
     </div>
 
+    <!-- Skill Editing Modal -->
+    <div id="skill-modal" class="skill-modal">
+        <div class="skill-modal-content">
+            <div class="skill-modal-header">
+                <h3>Edit Game Skills</h3>
+                <button class="skill-modal-close" onclick="closeSkillModal()">&times;</button>
+            </div>
+            <div id="skill-modal-game-title" class="skill-modal-game-title"></div>
+            <div class="skill-modal-body">
+                <div class="skill-sliders">
+                    <div class="skill-slider-group">
+                        <div class="skill-slider-header">
+                            <span class="skill-slider-label">Planning</span>
+                            <span id="skill-planning-value" class="skill-slider-value">5</span>
+                        </div>
+                        <div class="skill-slider-description">Strategic thinking, long-term planning</div>
+                        <input type="range" id="skill-planning" class="skill-slider" min="0" max="10" value="5" oninput="handleSkillSliderChange('planning')">
+                    </div>
+                    <div class="skill-slider-group">
+                        <div class="skill-slider-header">
+                            <span class="skill-slider-label">Management</span>
+                            <span id="skill-management-value" class="skill-slider-value">5</span>
+                        </div>
+                        <div class="skill-slider-description">Resource management, optimization</div>
+                        <input type="range" id="skill-management" class="skill-slider" min="0" max="10" value="5" oninput="handleSkillSliderChange('management')">
+                    </div>
+                    <div class="skill-slider-group">
+                        <div class="skill-slider-header">
+                            <span class="skill-slider-label">Negotiation</span>
+                            <span id="skill-negotiation-value" class="skill-slider-value">0</span>
+                        </div>
+                        <div class="skill-slider-description">Trading, deal-making, diplomacy</div>
+                        <input type="range" id="skill-negotiation" class="skill-slider" min="0" max="10" value="0" oninput="handleSkillSliderChange('negotiation')">
+                    </div>
+                    <div class="skill-slider-group">
+                        <div class="skill-slider-header">
+                            <span class="skill-slider-label">Social Awareness</span>
+                            <span id="skill-social-value" class="skill-slider-value">5</span>
+                        </div>
+                        <div class="skill-slider-description">Reading opponents, bluffing, deduction</div>
+                        <input type="range" id="skill-social" class="skill-slider" min="0" max="10" value="5" oninput="handleSkillSliderChange('social')">
+                    </div>
+                    <div class="skill-slider-group">
+                        <div class="skill-slider-header">
+                            <span class="skill-slider-label">Memory</span>
+                            <span id="skill-memory-value" class="skill-slider-value">3</span>
+                        </div>
+                        <div class="skill-slider-description">Card counting, pattern recognition</div>
+                        <input type="range" id="skill-memory" class="skill-slider" min="0" max="10" value="3" oninput="handleSkillSliderChange('memory')">
+                    </div>
+                    <div class="skill-slider-group">
+                        <div class="skill-slider-header">
+                            <span class="skill-slider-label">Luck</span>
+                            <span id="skill-luck-value" class="skill-slider-value">5</span>
+                        </div>
+                        <div class="skill-slider-description">Dice rolling, card draws, random elements</div>
+                        <input type="range" id="skill-luck" class="skill-slider" min="0" max="10" value="5" oninput="handleSkillSliderChange('luck')">
+                    </div>
+                </div>
+                <div class="skill-preview">
+                    <h4>Preview</h4>
+                    <div class="skill-preview-chart-container">
+                        <canvas id="skill-preview-chart" width="250" height="250"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="skill-modal-footer">
+                <button class="skill-modal-cancel" onclick="closeSkillModal()">Cancel</button>
+                <button class="skill-modal-save" onclick="saveGameSkills()">Save Skills</button>
+            </div>
+        </div>
+    </div>
+
     <script src="config.js"></script>
     <script src="awards.js"></script>
+    <script src="bgg.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

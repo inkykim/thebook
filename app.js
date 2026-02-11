@@ -3,10 +3,11 @@
  * Main application logic with Supabase backend
  */
 
-// Initialize Supabase client
+// Initialize Supabase client (exposed globally for use in other modules)
 let db;
 try {
     db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    window.db = db; // Make available globally for bgg.js
 } catch (e) {
     console.error('Failed to initialize Supabase. Check your config.js');
 }
@@ -40,21 +41,23 @@ let currentPlayers = [];
 // Edit mode state
 let editMode = false;
 
+// Current view state
+let currentView = 'main';
+let libraryInitialized = false;
+
 /**
  * Initialize the application
  */
 function init() {
     // Log form controls
-    const toggleBtn = document.getElementById('toggle-log-form');
     const saveBtn = document.getElementById('save-game');
     const cancelBtn = document.getElementById('cancel-log');
     const addPlayerBtn = document.getElementById('add-player-btn');
     const addPlayerInput = document.getElementById('add-player-input');
     const editModeBtn = document.getElementById('toggle-edit-mode');
     
-    toggleBtn.addEventListener('click', toggleLogForm);
     saveBtn.addEventListener('click', saveGame);
-    cancelBtn.addEventListener('click', hideLogForm);
+    cancelBtn.addEventListener('click', () => switchView('main'));
     addPlayerBtn.addEventListener('click', addPlayer);
     addPlayerInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -64,37 +67,101 @@ function init() {
     });
     editModeBtn.addEventListener('click', toggleEditMode);
     
+    // Set up navigation
+    initNavigation();
+    
     // Load data from localStorage or sample data
     loadData();
 }
 
 /**
- * Toggle the log form visibility
+ * Initialize the navigation tabs
  */
-function toggleLogForm() {
-    const form = document.getElementById('log-form');
-    const btn = document.getElementById('toggle-log-form');
+function initNavigation() {
+    const navBtns = document.querySelectorAll('.header-nav-btn');
+    const logGameBtn = document.getElementById('nav-log-game');
     
-    if (form.classList.contains('hidden')) {
-        form.classList.remove('hidden');
-        btn.textContent = '− Cancel';
-        updateSuggestions();
-    } else {
-        hideLogForm();
-    }
+    navBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const section = btn.dataset.section;
+            
+            // Handle "Log a Game" button separately
+            if (btn.id === 'nav-log-game') {
+                switchView('log');
+                updateSuggestions();
+            } else if (section) {
+                switchView(section);
+            }
+            
+            // Update active state
+            navBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        });
+    });
 }
 
 /**
- * Hide the log form and reset it
+ * Switch between main dashboard, library, and log views
  */
-function hideLogForm() {
-    const form = document.getElementById('log-form');
-    const btn = document.getElementById('toggle-log-form');
+function switchView(view) {
+    currentView = view;
     
-    form.classList.add('hidden');
-    btn.textContent = '+ Log Game';
-    resetForm();
+    // Define sections for each view
+    const mainSections = ['awards-section', 'stats-section', 'charts-section', 'leaderboard-section', 'history-section'];
+    const librarySections = ['library-section'];
+    const logSection = document.getElementById('log-section');
+    
+    // Update nav button states
+    const navBtns = document.querySelectorAll('.header-nav-btn');
+    navBtns.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.section === view || (view === 'log' && btn.id === 'nav-log-game')) {
+            btn.classList.add('active');
+        }
+    });
+    
+    // Hide all sections first
+    mainSections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
+    librarySections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+    });
+    if (logSection) logSection.classList.add('hidden');
+    
+    if (view === 'main') {
+        // Show main sections (only if there's data)
+        if (gameData.games && gameData.games.length > 0) {
+            mainSections.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.remove('hidden');
+            });
+        }
+    } else if (view === 'library') {
+        // Show library
+        librarySections.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
+        });
+        
+        // Initialize library if not already done
+        if (!libraryInitialized) {
+            libraryInitialized = true;
+            initLibrary(
+                gameData.gameTypes || [],
+                gameData.games || [],
+                gameData.playerStats || {},
+                gameData.playerGameStats || {}
+            );
+        }
+    } else if (view === 'log') {
+        // Show log section
+        if (logSection) logSection.classList.remove('hidden');
+    }
 }
+
 
 /**
  * Reset the log form
@@ -218,12 +285,13 @@ async function saveGame() {
     // Refresh display
     await loadData();
     
-    // Show success and hide form
+    // Show success and switch back to dashboard
     statusDiv.textContent = `✓ Logged: ${winner} won ${gameName}!`;
     statusDiv.className = 'success';
     
     setTimeout(() => {
-        hideLogForm();
+        resetForm();
+        switchView('main');
     }, 1500);
 }
 
@@ -254,6 +322,10 @@ async function loadData() {
             processData(data);
             showSections();
             renderAll();
+            // Refresh library if viewing it
+            if (currentView === 'library') {
+                refreshLibrary();
+            }
         } else {
             console.log('No data found');
             showSections();
@@ -279,16 +351,25 @@ function subscribeToUpdates() {
         db.removeChannel(realtimeChannel);
     }
     
-    // Subscribe to all changes on the games table
+    // Subscribe to all changes on the games table AND bgg_cache table
     realtimeChannel = db
-        .channel('games-changes')
+        .channel('all-changes')
         .on(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'games' },
             (payload) => {
-                console.log('Realtime update:', payload);
+                console.log('Games realtime update:', payload);
                 // Reload all data when any change happens
                 loadDataWithoutResubscribe();
+            }
+        )
+        .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'bgg_cache' },
+            (payload) => {
+                console.log('BGG cache realtime update:', payload);
+                // Refresh library when BGG data changes
+                refreshLibraryOnly();
             }
         )
         .subscribe((status) => {
@@ -312,9 +393,45 @@ async function loadDataWithoutResubscribe() {
             processData(data);
             showSections();
             renderAll();
+            refreshLibrary();
         }
     } catch (error) {
         console.error('Error reloading data:', error);
+    }
+}
+
+/**
+ * Refresh the library view if it's been initialized
+ */
+function refreshLibrary() {
+    if (libraryInitialized) {
+        // Clear BGG session cache to fetch fresh data
+        if (window.clearBGGSessionCache) {
+            clearBGGSessionCache();
+        }
+        
+        // Re-initialize library to fetch any new games (this will also refresh players with updated BGG data)
+        initLibrary(
+            gameData.gameTypes,
+            gameData.games,
+            gameData.playerStats,
+            gameData.playerGameStats
+        );
+    }
+}
+
+/**
+ * Refresh only the library view (for BGG cache updates)
+ */
+function refreshLibraryOnly() {
+    if (libraryInitialized && currentView === 'library') {
+        console.log('Refreshing library due to BGG cache update...');
+        initLibrary(
+            gameData.gameTypes || [],
+            gameData.games || [],
+            gameData.playerStats || {},
+            gameData.playerGameStats || {}
+        );
     }
 }
 
@@ -1049,6 +1166,7 @@ window.deleteGame = deleteGame;
 window.editGame = editGame;
 window.saveEditedGame = saveEditedGame;
 window.cancelEdit = cancelEdit;
+window.refreshLibraryOnly = refreshLibraryOnly;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', init);
