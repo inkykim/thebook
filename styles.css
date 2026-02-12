@@ -419,6 +419,23 @@ body {
 .award-icon {
     font-size: 2rem;
     margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #c9c2b5;
+}
+
+.award-icon-svg {
+    width: 48px;
+    height: 48px;
+    opacity: 0.85;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    fill: currentColor;
+}
+
+.award-card:hover .award-icon-svg {
+    transform: scale(1.1);
+    opacity: 1;
 }
 
 .award-title {

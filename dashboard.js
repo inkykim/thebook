@@ -22,15 +22,32 @@ function renderStats() {
 /**
  * Render awards
  */
-function renderAwards() {
+async function renderAwards() {
     const container = document.getElementById('awards-grid');
     if (!container) return;
     
     const awards = calculateAwards(gameData);
     
-    container.innerHTML = awards.map(award => `
+    // Fetch all SVG icons and inline them so currentColor works
+    const awardsWithIcons = await Promise.all(awards.map(async (award) => {
+        if (award.iconPath) {
+            try {
+                const response = await fetch(award.iconPath);
+                const svgContent = await response.text();
+                // Add the class to the SVG element
+                award.inlineSvg = svgContent.replace('<svg', '<svg class="award-icon-svg"');
+            } catch (e) {
+                award.inlineSvg = award.icon; // Fallback to text icon
+            }
+        }
+        return award;
+    }));
+    
+    container.innerHTML = awardsWithIcons.map(award => `
         <div class="award-card">
-            <div class="award-icon">${award.icon}</div>
+            <div class="award-icon">
+                ${award.inlineSvg || award.icon}
+            </div>
             <div class="award-title">${award.name}</div>
             <div class="award-winner">${award.winner}</div>
             <div class="award-description">${award.description}</div>

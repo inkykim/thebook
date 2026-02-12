@@ -9,6 +9,7 @@ const AWARDS = [
         id: 'dominator',
         name: 'The Dominator',
         icon: '♕',
+        iconPath: 'icons/overlord-helm.svg',
         description: 'Most total wins across all games',
         calculate: (data) => {
             const { playerStats } = data;
@@ -29,8 +30,9 @@ const AWARDS = [
     },
     {
         id: 'collector',
-        name: 'The Collector',
+        name: 'The Usurper',
         icon: '◆',
+        iconPath: 'icons/goblin-head.svg',
         description: 'Won the most different types of games',
         calculate: (data) => {
             const { playerStats } = data;
@@ -52,8 +54,9 @@ const AWARDS = [
     },
     {
         id: 'consistent',
-        name: 'The Consistent',
+        name: 'The Marksman',
         icon: '↑',
+        iconPath: 'icons/woman-elf-face.svg',
         description: 'Highest win rate (min 5 games played)',
         calculate: (data) => {
             const { playerStats } = data;
@@ -83,6 +86,7 @@ const AWARDS = [
         id: 'specialist',
         name: 'The Specialist',
         icon: '⚗',
+        iconPath: 'icons/wizard-face.svg',
         description: 'Highest win rate in a single game type (min 3 plays)',
         calculate: (data) => {
             const { playerGameStats } = data;
@@ -119,8 +123,9 @@ const AWARDS = [
     },
     {
         id: 'streak',
-        name: 'The Streak King',
+        name: 'The Warden',
         icon: '☼',
+        iconPath: 'icons/dwarf-face.svg',
         description: 'Longest winning streak',
         calculate: (data) => {
             const { playerStats } = data;
@@ -141,8 +146,9 @@ const AWARDS = [
     },
     {
         id: 'hothand',
-        name: 'The Hot Hand',
+        name: 'The Kindled',
         icon: '✦',
+        iconPath: 'icons/dragon-head.svg',
         description: 'Best win rate in the last 10 games played',
         calculate: (data) => {
             const { games, players } = data;
@@ -184,8 +190,9 @@ const AWARDS = [
     },
     {
         id: 'ironthrone',
-        name: 'The Iron Throne',
+        name: 'The Zealot',
         icon: '⚔',
+        iconPath: 'icons/crowned-skull.svg',
         description: 'Currently on the longest active winning streak',
         calculate: (data) => {
             const { playerStats } = data;
@@ -211,6 +218,7 @@ const AWARDS = [
         id: 'loser',
         name: 'The Loser',
         icon: '☹',
+        iconPath: 'icons/troll.svg',
         description: 'Longest losing streak',
         calculate: (data) => {
             const { games, players } = data;
