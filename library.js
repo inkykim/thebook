@@ -257,9 +257,10 @@ function renderGamesLibrary(gameTypes, bggData, localStats) {
         const bgg = bggData[bggKey];
         const stats = localStats[gameName] || { timesPlayed: 0, wins: {}, lastPlayed: 'N/A' };
         
-        // Calculate who wins most at this game
-        const topWinner = Object.entries(stats.wins || {})
-            .sort((a, b) => b[1] - a[1])[0];
+        // Calculate who wins most at this game (honor ties)
+        const winsEntries = Object.entries(stats.wins || {}).sort((a, b) => b[1] - a[1]);
+        const maxWins = winsEntries.length > 0 ? winsEntries[0][1] : 0;
+        const topWinners = winsEntries.filter(entry => entry[1] === maxWins);
         
         if (bgg) {
             // We have BGG data
@@ -310,12 +311,12 @@ function renderGamesLibrary(gameTypes, bggData, localStats) {
                                     <div class="your-stat-label">Times Played</div>
                                 </div>
                                 <div class="your-stat">
-                                    <div class="your-stat-value">${topWinner ? topWinner[0] : 'N/A'}</div>
-                                    <div class="your-stat-label">Top Winner</div>
+                                    <div class="your-stat-value">${topWinners.length > 0 ? topWinners.map(w => w[0]).join(' & ') : 'N/A'}</div>
+                                    <div class="your-stat-label">Top Winner${topWinners.length > 1 ? 's' : ''}</div>
                                 </div>
                                 <div class="your-stat">
-                                    <div class="your-stat-value">${topWinner ? topWinner[1] : 0}</div>
-                                    <div class="your-stat-label">Their Wins</div>
+                                    <div class="your-stat-value">${topWinners.length > 0 ? topWinners[0][1] : 0}</div>
+                                    <div class="your-stat-label">${topWinners.length > 1 ? 'Each' : 'Their'} Wins</div>
                                 </div>
                             </div>
                         </div>
@@ -364,12 +365,12 @@ function renderGamesLibrary(gameTypes, bggData, localStats) {
                                     <div class="your-stat-label">Times Played</div>
                                 </div>
                                 <div class="your-stat">
-                                    <div class="your-stat-value">${topWinner ? topWinner[0] : 'N/A'}</div>
-                                    <div class="your-stat-label">Top Winner</div>
+                                    <div class="your-stat-value">${topWinners.length > 0 ? topWinners.map(w => w[0]).join(' & ') : 'N/A'}</div>
+                                    <div class="your-stat-label">Top Winner${topWinners.length > 1 ? 's' : ''}</div>
                                 </div>
                                 <div class="your-stat">
-                                    <div class="your-stat-value">${topWinner ? topWinner[1] : 0}</div>
-                                    <div class="your-stat-label">Their Wins</div>
+                                    <div class="your-stat-value">${topWinners.length > 0 ? topWinners[0][1] : 0}</div>
+                                    <div class="your-stat-label">${topWinners.length > 1 ? 'Each' : 'Their'} Wins</div>
                                 </div>
                             </div>
                         </div>
@@ -552,54 +553,42 @@ function renderPlayerSkillChart(canvasId, skills, playerName, globalMax = 100) {
 let cachedBggData = {};
 
 /**
- * Calculate head-to-head wins between two players
- * @param {string} player1 - First player name
- * @param {string} player2 - Second player name
- * @param {Array} games - Array of game objects
- * @returns {Object} { player1Wins, player2Wins } - wins in games where both participated
+ * Compare two players using standard tiebreaker chain:
+ * 1) Total wins (higher is better)
+ * 2) Fewest games played (fewer is better - more efficient)
+ * 3) Variety of games won (more unique games won is better)
+ * 
+ * @param {Object} statsA - Player A stats { wins, gamesPlayed, gamesWon }
+ * @param {Object} statsB - Player B stats { wins, gamesPlayed, gamesWon }
+ * @returns {number} Negative if A is better, positive if B is better, 0 if truly tied
  */
-function calculateHeadToHead(player1, player2, games) {
-    let player1Wins = 0;
-    let player2Wins = 0;
+function comparePlayers(statsA, statsB) {
+    // Tiebreaker 1: Total wins (higher is better)
+    if (statsA.wins !== statsB.wins) {
+        return statsB.wins - statsA.wins;
+    }
     
-    games.forEach(game => {
-        // Only count games where both players participated
-        if (game.players.includes(player1) && game.players.includes(player2)) {
-            if (game.winner === player1) {
-                player1Wins++;
-            } else if (game.winner === player2) {
-                player2Wins++;
-            }
-        }
-    });
+    // Tiebreaker 2: Fewest games played (fewer is better)
+    const gamesA = statsA.gamesPlayed || 0;
+    const gamesB = statsB.gamesPlayed || 0;
     
-    return { player1Wins, player2Wins };
+    if (gamesA !== gamesB) {
+        return gamesA - gamesB; // Lower is better
+    }
+    
+    // Tiebreaker 3: Variety of games won (unique games)
+    const varietyA = statsA.gamesWon ? new Set(statsA.gamesWon).size : 0;
+    const varietyB = statsB.gamesWon ? new Set(statsB.gamesWon).size : 0;
+    
+    return varietyB - varietyA;
 }
 
 /**
- * Calculate total head-to-head wins against a group of tied players
- * @param {string} player - Player to calculate for
- * @param {Array} tiedPlayers - Array of player names who are tied
- * @param {Array} games - Array of game objects
- * @returns {number} Total wins against tied opponents
- */
-function calculateHeadToHeadVsTied(player, tiedPlayers, games) {
-    let totalWins = 0;
-    
-    tiedPlayers.forEach(opponent => {
-        if (opponent !== player) {
-            const h2h = calculateHeadToHead(player, opponent, games);
-            totalWins += h2h.player1Wins;
-        }
-    });
-    
-    return totalWins;
-}
-
-/**
- * Sort players with tiebreakers: total wins, win rate, head-to-head vs tied players
+ * Sort players with tiebreakers: total wins, win rate, variety of games won
+ * Players who remain tied after all tiebreakers will have the same effective rank
+ * 
  * @param {Array} playerEntries - Array of [playerName, stats] entries
- * @param {Array} games - Array of game objects
+ * @param {Array} games - Array of game objects (unused, kept for API compatibility)
  * @returns {Array} Sorted array of [playerName, stats] entries
  */
 function sortPlayersWithTiebreakers(playerEntries, games) {
@@ -608,77 +597,10 @@ function sortPlayersWithTiebreakers(playerEntries, games) {
         return playerEntries;
     }
     
-    // First, sort by primary criteria (wins)
-    playerEntries.sort((a, b) => b[1].wins - a[1].wins);
-    
-    // Group players by wins to identify tied groups
-    const tiedGroups = [];
-    let currentGroup = [playerEntries[0]];
-    
-    for (let i = 1; i < playerEntries.length; i++) {
-        if (playerEntries[i][1].wins === playerEntries[i - 1][1].wins) {
-            currentGroup.push(playerEntries[i]);
-        } else {
-            if (currentGroup.length > 1) {
-                tiedGroups.push([...currentGroup]);
-            }
-            currentGroup = [playerEntries[i]];
-        }
-    }
-    if (currentGroup.length > 1) {
-        tiedGroups.push(currentGroup);
-    }
-    
-    // For each tied group, apply tiebreakers
-    tiedGroups.forEach(group => {
-        const groupPlayerNames = group.map(entry => entry[0]);
-        
-        // Sort the tied group by: 1) win rate, 2) head-to-head vs tied opponents
-        group.sort((a, b) => {
-            const [nameA, statsA] = a;
-            const [nameB, statsB] = b;
-            
-            // Tiebreaker 1: Win rate
-            const winRateA = statsA.gamesPlayed > 0 ? statsA.wins / statsA.gamesPlayed : 0;
-            const winRateB = statsB.gamesPlayed > 0 ? statsB.wins / statsB.gamesPlayed : 0;
-            
-            if (Math.abs(winRateA - winRateB) > 0.0001) {
-                return winRateB - winRateA;
-            }
-            
-            // Tiebreaker 2: Head-to-head record against tied players
-            const h2hA = calculateHeadToHeadVsTied(nameA, groupPlayerNames, games);
-            const h2hB = calculateHeadToHeadVsTied(nameB, groupPlayerNames, games);
-            
-            return h2hB - h2hA;
-        });
+    // Sort using the standard tiebreaker chain
+    return [...playerEntries].sort((a, b) => {
+        return comparePlayers(a[1], b[1]);
     });
-    
-    // Rebuild the sorted array with resolved ties
-    const result = [];
-    
-    for (let i = 0; i < playerEntries.length; i++) {
-        const currentWins = playerEntries[i][1].wins;
-        
-        // Check if this player is part of a tied group
-        const tiedGroup = tiedGroups.find(group => 
-            group.some(entry => entry[0] === playerEntries[i][0])
-        );
-        
-        if (tiedGroup && !result.some(r => tiedGroup.some(t => t[0] === r[0]))) {
-            // Add all members of the tied group in their sorted order
-            result.push(...tiedGroup);
-            // Skip ahead past all members of this group
-            const groupWins = tiedGroup[0][1].wins;
-            while (i + 1 < playerEntries.length && playerEntries[i + 1][1].wins === groupWins) {
-                i++;
-            }
-        } else if (!tiedGroup) {
-            result.push(playerEntries[i]);
-        }
-    }
-    
-    return result;
 }
 
 /**
@@ -703,18 +625,41 @@ function renderPlayersLibrary(playerStats, playerGameStats, bggData) {
     // Calculate all player skills at once (they're relative to each other)
     const allPlayerSkills = calculateAllPlayerSkills(playerGameStats || {}, cachedBggData);
     
-    // Sort players with tiebreakers: total wins, win rate, head-to-head
+    // Sort players with tiebreakers: total wins, win rate, variety of games won
     const sortedPlayers = sortPlayersWithTiebreakers(
         Object.entries(playerStats),
         games
     );
+    
+    // Calculate ranks accounting for ties
+    const ranks = [];
+    let currentRank = 1;
+    
+    for (let i = 0; i < sortedPlayers.length; i++) {
+        if (i === 0) {
+            ranks.push(currentRank);
+        } else {
+            const prevStats = sortedPlayers[i - 1][1];
+            const currStats = sortedPlayers[i][1];
+            
+            // Check if truly tied using comparePlayers
+            const isTied = comparePlayers(prevStats, currStats) === 0;
+            
+            if (isTied) {
+                ranks.push(ranks[i - 1]); // Same rank as previous
+            } else {
+                currentRank = i + 1; // Rank jumps to position
+                ranks.push(currentRank);
+            }
+        }
+    }
     
     container.innerHTML = sortedPlayers.map(([playerName, stats], index) => {
         const winRate = stats.gamesPlayed > 0 
             ? ((stats.wins / stats.gamesPlayed) * 100).toFixed(1)
             : 0;
         
-        const rank = index + 1;
+        const rank = ranks[index];
         const rankText = rank === 1 ? '1st Place' : rank === 2 ? '2nd Place' : rank === 3 ? '3rd Place' : `#${rank}`;
         
         // Get favorite games (most wins)
@@ -1157,5 +1102,6 @@ window.saveGameSkills = saveGameSkills;
 window.handleSkillSliderChange = handleSkillSliderChange;
 window.updateGameSkills = updateGameSkills;
 window.sortPlayersWithTiebreakers = sortPlayersWithTiebreakers;
+window.comparePlayers = comparePlayers;
 window.openSkillsInfo = openSkillsInfo;
 window.closeSkillsInfo = closeSkillsInfo;

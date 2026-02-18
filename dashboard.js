@@ -363,27 +363,56 @@ function renderLeaderboard() {
     const tbody = document.getElementById('leaderboard-body');
     if (!tbody) return;
     
-    // Use tiebreaker sorting: total wins, win rate, head-to-head
-    let sortedPlayers;
+    // Use tiebreaker sorting: total wins, win rate, variety of games won
+    let sortedEntries;
     if (typeof window.sortPlayersWithTiebreakers === 'function') {
         // Convert players to [name, stats] entries for the sorting function
         const playerEntries = gameData.players.map(p => [p, gameData.playerStats[p]]);
-        const sortedEntries = window.sortPlayersWithTiebreakers(playerEntries, gameData.games || []);
-        sortedPlayers = sortedEntries.map(entry => entry[0]);
+        sortedEntries = window.sortPlayersWithTiebreakers(playerEntries, gameData.games || []);
     } else {
         // Fallback to simple wins sort
-        sortedPlayers = [...gameData.players]
-            .sort((a, b) => gameData.playerStats[b].wins - gameData.playerStats[a].wins);
+        sortedEntries = gameData.players
+            .map(p => [p, gameData.playerStats[p]])
+            .sort((a, b) => b[1].wins - a[1].wins);
     }
     
-    tbody.innerHTML = sortedPlayers.map((player, index) => {
-        const stats = gameData.playerStats[player];
+    // Calculate ranks accounting for ties
+    const ranks = [];
+    let currentRank = 1;
+    
+    for (let i = 0; i < sortedEntries.length; i++) {
+        if (i === 0) {
+            ranks.push(currentRank);
+        } else {
+            const prevStats = sortedEntries[i - 1][1];
+            const currStats = sortedEntries[i][1];
+            
+            // Check if truly tied using comparePlayers if available
+            let isTied = false;
+            if (typeof window.comparePlayers === 'function') {
+                isTied = window.comparePlayers(prevStats, currStats) === 0;
+            } else {
+                // Fallback: just compare wins
+                isTied = prevStats.wins === currStats.wins;
+            }
+            
+            if (isTied) {
+                ranks.push(ranks[i - 1]); // Same rank as previous
+            } else {
+                currentRank = i + 1; // Rank jumps to position
+                ranks.push(currentRank);
+            }
+        }
+    }
+    
+    tbody.innerHTML = sortedEntries.map(([player, stats], index) => {
         const winRate = stats.gamesPlayed > 0 
             ? ((stats.wins / stats.gamesPlayed) * 100).toFixed(1) + '%'
             : '-';
         
-        const rankClass = index < 3 ? `rank-${index + 1}` : '';
-        const rankDisplay = index === 0 ? 'I' : index === 1 ? 'II' : index === 2 ? 'III' : index + 1;
+        const rank = ranks[index];
+        const rankClass = rank <= 3 ? `rank-${rank}` : '';
+        const rankDisplay = rank === 1 ? 'I' : rank === 2 ? 'II' : rank === 3 ? 'III' : rank;
         
         return `
             <tr>
