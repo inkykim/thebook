@@ -359,11 +359,15 @@ function processData(rawData) {
     // Process each row
     rawData.forEach((row, index) => {
         // Flexible column detection
+        const winnerRaw = row.winner || row.Winner || '';
+        const winners = parsePlayerList(winnerRaw);
+        
         const game = {
             id: index,
             date: row.date || row.Date || '',
             gameName: row.game || row.Game || row['game name'] || row['Game Name'] || '',
-            winner: (row.winner || row.Winner || '').trim(),
+            winner: winnerRaw.trim(), // Keep original string for backward compatibility
+            winners: winners, // Array of winners for multi-winner support
             players: parsePlayerList(row.players || row.Players || row.winner || row.Winner || ''),
             notes: row.notes || row.Notes || '',
             duration: row.duration || row.Duration || ''
@@ -372,10 +376,12 @@ function processData(rawData) {
         // Skip rows without essential data
         if (!game.gameName && !game.winner) return;
         
-        // Ensure winner is in players list
-        if (game.winner && !game.players.includes(game.winner)) {
-            game.players.push(game.winner);
-        }
+        // Ensure all winners are in players list
+        game.winners.forEach(winner => {
+            if (winner && !game.players.includes(winner)) {
+                game.players.push(winner);
+            }
+        });
         
         gameData.games.push(game);
         gameData.gameTypes.add(game.gameName);
@@ -437,7 +443,8 @@ function calculatePlayerStats() {
             if (!gameData.playerStats[player]) return;
             
             const stats = gameData.playerStats[player];
-            const won = game.winner === player;
+            // Support multiple winners: check if player is in winners array
+            const won = game.winners && game.winners.includes(player);
             
             stats.gamesPlayed++;
             stats.gamesPlayed_list.push(game.gameName);
@@ -501,6 +508,31 @@ function parseDate(dateStr) {
     return new Date(dateStr);
 }
 
+/**
+ * Check if a player won a game (supports multiple winners)
+ * @param {Object} game - The game object
+ * @param {string} player - The player name to check
+ * @returns {boolean} - True if the player won
+ */
+function isWinner(game, player) {
+    if (game.winners && Array.isArray(game.winners)) {
+        return game.winners.includes(player);
+    }
+    return game.winner === player;
+}
+
+/**
+ * Get winners array from a game (handles both old and new format)
+ * @param {Object} game - The game object
+ * @returns {Array} - Array of winner names
+ */
+function getWinners(game) {
+    if (game.winners && Array.isArray(game.winners)) {
+        return game.winners;
+    }
+    return game.winner ? [game.winner] : [];
+}
+
 // Expose globals for other modules
 window.db = db;
 window.gameData = gameData;
@@ -513,3 +545,5 @@ window.loadData = loadData;
 window.parseDate = parseDate;
 window.refreshLibraryOnly = refreshLibraryOnly;
 window.refreshLibrary = refreshLibrary;
+window.isWinner = isWinner;
+window.getWinners = getWinners;

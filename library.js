@@ -782,9 +782,13 @@ function calculateLocalGameStats(games) {
         
         stats[gameName].timesPlayed++;
         
-        if (game.winner) {
-            stats[gameName].wins[game.winner] = (stats[gameName].wins[game.winner] || 0) + 1;
-        }
+        // Support multiple winners
+        const winners = game.winners || (game.winner ? [game.winner] : []);
+        winners.forEach(winner => {
+            if (winner) {
+                stats[gameName].wins[winner] = (stats[gameName].wins[winner] || 0) + 1;
+            }
+        });
         
         if (game.date) {
             stats[gameName].lastPlayed = game.date;

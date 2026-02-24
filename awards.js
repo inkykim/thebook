@@ -161,7 +161,10 @@ const AWARDS = [
                 ).slice(-10);
                 
                 if (playerGames.length >= 3) {
-                    const wins = playerGames.filter(g => g.winner === player).length;
+                    // Support multiple winners
+                    const wins = playerGames.filter(g => 
+                        g.winners ? g.winners.includes(player) : g.winner === player
+                    ).length;
                     recentStats[player] = {
                         wins,
                         played: playerGames.length,
@@ -230,7 +233,9 @@ const AWARDS = [
                 
                 games.forEach(game => {
                     if (game.players && game.players.includes(player)) {
-                        if (game.winner !== player) {
+                        // Support multiple winners: player loses if not in winners array
+                        const won = game.winners ? game.winners.includes(player) : game.winner === player;
+                        if (!won) {
                             currentStreak++;
                             if (currentStreak > maxStreak) {
                                 maxStreak = currentStreak;

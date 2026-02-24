@@ -122,7 +122,7 @@ function showLogStatus(message, type) {
  */
 async function saveGame() {
     const gameName = document.getElementById('game-name').value.trim().toLowerCase();
-    const winner = document.getElementById('game-winner').value.trim().toLowerCase();
+    const winnerInput = document.getElementById('game-winner').value.trim().toLowerCase();
     const statusDiv = document.getElementById('log-status');
     
     // Validation
@@ -131,16 +131,24 @@ async function saveGame() {
         return;
     }
     
-    if (!winner) {
+    if (!winnerInput) {
         showLogStatus('Please enter a winner', 'error');
         return;
     }
     
-    // Ensure winner is in players list
+    // Parse winners (support multiple via semicolon, comma, or "and")
+    const winners = winnerInput
+        .split(/[,;]|\band\b/i)
+        .map(w => w.trim())
+        .filter(w => w);
+    
+    // Ensure all winners are in players list
     let players = [...currentPlayers];
-    if (!players.includes(winner)) {
-        players.push(winner);
-    }
+    winners.forEach(winner => {
+        if (!players.includes(winner)) {
+            players.push(winner);
+        }
+    });
     
     // Create game entry
     const today = new Date();
@@ -149,7 +157,7 @@ async function saveGame() {
     const newGame = {
         date: dateStr,
         game: gameName,
-        winner: winner,
+        winner: winners.join('; '), // Store multiple winners semicolon-separated
         players: players.join('; ')
     };
     
@@ -170,7 +178,8 @@ async function saveGame() {
     await loadData();
     
     // Show success and switch back to dashboard
-    showLogStatus(`Logged: ${winner} won ${gameName}!`, 'success');
+    const winnerDisplay = winners.join(' & ');
+    showLogStatus(`Logged: ${winnerDisplay} won ${gameName}!`, 'success');
     
     setTimeout(() => {
         resetForm();

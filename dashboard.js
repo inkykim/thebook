@@ -302,9 +302,13 @@ function renderTimelineChart() {
         sortedGames
             .filter(g => g.date === date)
             .forEach(game => {
-                if (game.winner && cumulativeWins.hasOwnProperty(game.winner)) {
-                    cumulativeWins[game.winner]++;
-                }
+                // Support multiple winners
+                const winners = game.winners || (game.winner ? [game.winner] : []);
+                winners.forEach(winner => {
+                    if (winner && cumulativeWins.hasOwnProperty(winner)) {
+                        cumulativeWins[winner]++;
+                    }
+                });
             });
         
         // Add data point for this date
@@ -441,7 +445,10 @@ function renderHistory() {
         const gameId = game.id;
         const playersStr = game.players || '';
         const playersArr = playersStr.split(/[,;]/).map(p => p.trim()).filter(p => p);
-        const otherPlayers = playersArr.filter(p => p !== game.winner);
+        // Support multiple winners
+        const winnersArr = (game.winner || '').split(/[,;]/).map(p => p.trim()).filter(p => p);
+        const winnersDisplay = winnersArr.join(' & ') || 'Unknown';
+        const otherPlayers = playersArr.filter(p => !winnersArr.includes(p));
         
         return `
         <div class="game-entry">
@@ -451,15 +458,15 @@ function renderHistory() {
                     <span class="game-date">${game.date || 'No date'}</span>
                 </div>
                 <div>
-                    <span class="game-winner">🏆 ${game.winner || 'Unknown'}</span>
-                    <span class="game-players"> vs ${otherPlayers.join(', ') || 'N/A'}</span>
+                    <span class="game-winner">🏆 ${winnersDisplay}</span>
+                    <span class="game-players">${otherPlayers.length > 0 ? ' vs ' + otherPlayers.join(', ') : ''}</span>
                 </div>
             </div>
             <div class="edit-inputs">
                 <input type="text" class="edit-date" value="${game.date || ''}" placeholder="Date" style="width: 100px">
                 <input type="text" class="edit-game" value="${game.game || ''}" placeholder="Game">
-                <input type="text" class="edit-winner" value="${game.winner || ''}" placeholder="Winner">
-                <input type="text" class="edit-players" value="${playersStr}" placeholder="Players (comma-sep)" style="width: 200px">
+                <input type="text" class="edit-winner" value="${game.winner || ''}" placeholder="Winner(s) (semicolon-sep)">
+                <input type="text" class="edit-players" value="${playersStr}" placeholder="Players (semicolon-sep)" style="width: 200px">
                 <button class="btn btn-primary btn-icon" onclick="saveEditedGame(${gameId}, ${displayIndex})">Save</button>
                 <button class="btn btn-secondary btn-icon" onclick="cancelEdit(${displayIndex})">Cancel</button>
             </div>
