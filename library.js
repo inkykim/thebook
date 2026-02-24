@@ -1,9 +1,30 @@
 /**
- * BoardGameGeek Data Integration
- * Reads BGG game data from Supabase cache
+ * BoardGameGeek Data Integration & Player Profiles
+ * Reads BGG game data and player profiles from Supabase
  * 
- * SETUP: Run this SQL in your Supabase SQL Editor to create the bgg_cache table:
+ * SETUP: Run this SQL in your Supabase SQL Editor:
  * 
+ * =============================================
+ * PLAYERS TABLE (for profile pictures)
+ * =============================================
+ * CREATE TABLE players (
+ *   id SERIAL PRIMARY KEY,
+ *   name TEXT UNIQUE NOT NULL,
+ *   avatar_url TEXT,
+ *   created_at TIMESTAMP DEFAULT NOW()
+ * );
+ * 
+ * ALTER TABLE players ENABLE ROW LEVEL SECURITY;
+ * CREATE POLICY "Allow public read" ON players FOR SELECT USING (true);
+ * CREATE POLICY "Allow public insert" ON players FOR INSERT WITH CHECK (true);
+ * CREATE POLICY "Allow public update" ON players FOR UPDATE USING (true);
+ * 
+ * -- Add a player: INSERT INTO players (name, avatar_url) VALUES ('playername', 'https://url.com/photo.jpg');
+ * -- Update avatar: UPDATE players SET avatar_url = 'https://new-url.com/photo.jpg' WHERE name = 'playername';
+ * 
+ * =============================================
+ * BGG CACHE TABLE
+ * =============================================
  * CREATE TABLE bgg_cache (
  *   id SERIAL PRIMARY KEY,
  *   game_name TEXT UNIQUE NOT NULL,
@@ -56,6 +77,53 @@ const SKILL_ATTRIBUTES = [
     { key: 'memory', label: 'Memory', abbrev: 'M', description: 'Card counting, pattern recognition' },
     { key: 'luck', label: 'Luck', abbrev: 'L', description: 'Dice rolling, card draws' }
 ];
+
+// Player profiles cache
+let playerProfiles = {};
+
+/**
+ * Fetch all player profiles from Supabase
+ */
+async function fetchPlayerProfiles() {
+    if (!window.db) {
+        return {};
+    }
+    
+    try {
+        const { data, error } = await window.db
+            .from('players')
+            .select('*');
+        
+        if (error) {
+            console.log('Players table not found or error:', error.message);
+            return {};
+        }
+        
+        const profiles = {};
+        if (data) {
+            data.forEach(row => {
+                profiles[row.name.toLowerCase()] = {
+                    name: row.name,
+                    avatarUrl: row.avatar_url
+                };
+            });
+        }
+        
+        console.log(`Loaded ${Object.keys(profiles).length} player profiles`);
+        playerProfiles = profiles;
+        return profiles;
+    } catch (e) {
+        return {};
+    }
+}
+
+/**
+ * Get player profile by name
+ */
+function getPlayerProfile(playerName) {
+    if (!playerName) return null;
+    return playerProfiles[playerName.toLowerCase()] || null;
+}
 
 /**
  * Fetch all BGG cache data from Supabase
@@ -684,10 +752,18 @@ function renderPlayersLibrary(playerStats, playerGameStats, bggData) {
         const playerSkills = getPlayerSkills(playerName, allPlayerSkills);
         const hasSkills = playerSkills !== null;
         
+        // Get player profile for avatar
+        const profile = getPlayerProfile(playerName);
+        const avatarUrl = profile?.avatarUrl;
+        const initial = playerName.charAt(0).toUpperCase();
+        
         return `
             <div class="player-library-card" data-player="${playerName}">
                 <div class="player-card-header">
-                    <div class="player-avatar">${playerName.charAt(0)}</div>
+                    ${avatarUrl 
+                        ? `<div class="player-avatar has-image"><img src="${avatarUrl}" alt="${playerName}" class="player-avatar-img"></div>`
+                        : `<div class="player-avatar">${initial}</div>`
+                    }
                     <div>
                         <div class="player-card-name">${playerName}</div>
                         <div class="player-card-rank">${rankText}</div>
@@ -711,19 +787,16 @@ function renderPlayersLibrary(playerStats, playerGameStats, bggData) {
                         <div class="player-stat-label">Best Streak</div>
                     </div>
                 </div>
-                ${hasSkills ? `
-                    <div class="player-skill-hexagon">
-                        <h4>Skill Profile</h4>
+                <div class="player-skill-hexagon clickable" onclick="openPlayerStatsModal('${playerName.replace(/'/g, "\\'")}')">
+                    <h4>Skill Profile</h4>
+                    ${hasSkills ? `
                         <div class="skill-chart-container">
                             <canvas id="${canvasId}" width="200" height="200"></canvas>
                         </div>
-                    </div>
-                ` : `
-                    <div class="player-skill-hexagon no-skills">
-                        <h4>Skill Profile</h4>
-                        <p class="no-skills-text">Set game skill weights in the Games tab to see player skill profiles</p>
-                    </div>
-                `}
+                    ` : `
+                        <p class="no-skills-text">No skill data yet</p>
+                    `}
+                </div>
                 ${topGames.length > 0 ? `
                     <div class="player-favorite-games">
                         <h4>Top Games Won</h4>
@@ -823,6 +896,9 @@ async function initLibrary(gameTypes, games, playerStats, playerGameStats) {
     
     // Calculate local stats
     const localGameStats = calculateLocalGameStats(games);
+    
+    // Fetch player profiles
+    await fetchPlayerProfiles();
     
     // Fetch BGG data for all games
     const loadingEl = document.getElementById('bgg-loading');
@@ -1073,6 +1149,274 @@ function closeSkillsInfo() {
     }
 }
 
+// Store current player for stats modal
+let currentStatsPlayer = null;
+
+/**
+ * Open the detailed stats modal for a player
+ */
+function openPlayerStatsModal(playerName) {
+    const modal = document.getElementById('player-stats-modal');
+    if (!modal) {
+        console.error('Player stats modal not found in DOM');
+        return;
+    }
+    
+    currentStatsPlayer = playerName;
+    
+    const profile = getPlayerProfile(playerName);
+    const displayName = profile?.displayName || playerName;
+    const avatarUrl = profile?.avatarUrl;
+    const initial = displayName.charAt(0).toUpperCase();
+    
+    // Set header info
+    document.getElementById('stats-modal-player-name').textContent = displayName;
+    
+    const avatarEl = document.getElementById('stats-modal-avatar');
+    if (avatarUrl) {
+        avatarEl.innerHTML = `<img src="${avatarUrl}" alt="${displayName}" class="player-avatar-img">`;
+        avatarEl.classList.add('has-image');
+    } else {
+        avatarEl.innerHTML = initial;
+        avatarEl.classList.remove('has-image');
+    }
+    
+    // Get player stats
+    const stats = window.gameData?.playerStats?.[playerName] || { wins: 0, gamesPlayed: 0, longestStreak: 0 };
+    const winRate = stats.gamesPlayed > 0 ? ((stats.wins / stats.gamesPlayed) * 100).toFixed(1) : 0;
+    
+    // Set overview stats
+    document.getElementById('stats-modal-wins').textContent = stats.wins;
+    document.getElementById('stats-modal-games').textContent = stats.gamesPlayed;
+    document.getElementById('stats-modal-winrate').textContent = `${winRate}%`;
+    document.getElementById('stats-modal-streak').textContent = stats.longestStreak || 0;
+    
+    // Render tab contents
+    renderGamesBreakdown(playerName);
+    renderMatchHistory(playerName);
+    renderHeadToHead(playerName);
+    
+    // Reset to first tab
+    const tabs = modal.querySelectorAll('.player-stats-tab');
+    const contents = modal.querySelectorAll('.player-stats-content');
+    tabs.forEach(t => t.classList.remove('active'));
+    contents.forEach(c => c.classList.remove('active'));
+    tabs[0]?.classList.add('active');
+    document.getElementById('player-stats-by-game')?.classList.add('active');
+    
+    // Show modal
+    modal.classList.add('active');
+}
+
+/**
+ * Close the player stats modal
+ */
+function closePlayerStatsModal() {
+    const modal = document.getElementById('player-stats-modal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+    currentStatsPlayer = null;
+}
+
+/**
+ * Render games breakdown tab
+ */
+function renderGamesBreakdown(playerName) {
+    const container = document.getElementById('player-games-breakdown');
+    if (!container) return;
+    
+    const playerGameStats = window.gameData?.playerGameStats?.[playerName] || {};
+    
+    if (Object.keys(playerGameStats).length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🎲</div>
+                <div class="empty-state-text">No games played yet</div>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort games by number of plays (most played first)
+    const sortedGames = Object.entries(playerGameStats).sort((a, b) => b[1].played - a[1].played);
+    
+    container.innerHTML = sortedGames.map(([gameName, stats]) => {
+        const winRate = stats.played > 0 ? ((stats.wins / stats.played) * 100) : 0;
+        const losses = stats.played - stats.wins;
+        
+        // Get thumbnail from BGG cache
+        const bggKey = gameName.toLowerCase().trim();
+        const bggData = cachedBggData[bggKey];
+        const thumbnail = bggData?.thumbnail;
+        
+        return `
+            <div class="game-breakdown-item">
+                ${thumbnail 
+                    ? `<img src="${thumbnail}" alt="${gameName}" class="game-breakdown-thumbnail">`
+                    : `<div class="game-breakdown-thumbnail placeholder">🎲</div>`
+                }
+                <div class="game-breakdown-info">
+                    <div class="game-breakdown-name">${gameName}</div>
+                    <div class="game-breakdown-record">
+                        <span class="record-wins">${stats.wins} wins</span>
+                        <span class="record-losses">${losses} losses</span>
+                    </div>
+                </div>
+                <div class="game-breakdown-stats">
+                    <div class="game-breakdown-winrate">${winRate.toFixed(0)}%</div>
+                    <div class="game-breakdown-bar">
+                        <div class="game-breakdown-bar-fill" style="width: ${winRate}%"></div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Render match history tab
+ */
+function renderMatchHistory(playerName) {
+    const container = document.getElementById('player-match-history');
+    if (!container) return;
+    
+    const games = window.gameData?.games || [];
+    
+    // Get all games this player participated in (most recent first)
+    const playerGames = games
+        .filter(g => g.players && g.players.includes(playerName))
+        .reverse();
+    
+    if (playerGames.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">📜</div>
+                <div class="empty-state-text">No match history yet</div>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = playerGames.map(game => {
+        const won = game.winners ? game.winners.includes(playerName) : game.winner === playerName;
+        const winners = game.winners || (game.winner ? [game.winner] : []);
+        const otherPlayers = game.players.filter(p => p !== playerName);
+        
+        // Format date nicely
+        let dateStr = game.date || '';
+        if (dateStr) {
+            try {
+                const date = new Date(dateStr);
+                if (!isNaN(date)) {
+                    dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                }
+            } catch (e) {}
+        }
+        
+        return `
+            <div class="match-history-item ${won ? 'win' : 'loss'}">
+                <div class="match-result-icon">${won ? 'W' : 'L'}</div>
+                <div class="match-info">
+                    <div class="match-game-name">${game.gameName}</div>
+                    <div class="match-details">
+                        ${won ? '' : `<span>Won by ${winners.join(', ')}</span>`}
+                        ${won && otherPlayers.length > 0 ? `<span>vs ${otherPlayers.join(', ')}</span>` : ''}
+                        ${!won && otherPlayers.length > 0 ? `<span class="match-separator">•</span><span>${otherPlayers.length + 1} players</span>` : ''}
+                    </div>
+                </div>
+                <div class="match-date">${dateStr}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+/**
+ * Render head to head stats tab
+ */
+function renderHeadToHead(playerName) {
+    const container = document.getElementById('player-h2h-stats');
+    if (!container) return;
+    
+    const games = window.gameData?.games || [];
+    
+    // Calculate head-to-head record against each opponent
+    const h2hStats = {};
+    
+    games.forEach(game => {
+        if (!game.players || !game.players.includes(playerName)) return;
+        
+        const playerWon = game.winners ? game.winners.includes(playerName) : game.winner === playerName;
+        const opponents = game.players.filter(p => p !== playerName);
+        
+        opponents.forEach(opponent => {
+            if (!h2hStats[opponent]) {
+                h2hStats[opponent] = { wins: 0, losses: 0, totalGames: 0 };
+            }
+            h2hStats[opponent].totalGames++;
+            
+            const opponentWon = game.winners ? game.winners.includes(opponent) : game.winner === opponent;
+            
+            if (playerWon && !opponentWon) {
+                h2hStats[opponent].wins++;
+            } else if (opponentWon && !playerWon) {
+                h2hStats[opponent].losses++;
+            }
+        });
+    });
+    
+    if (Object.keys(h2hStats).length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">⚔️</div>
+                <div class="empty-state-text">No head-to-head records yet</div>
+            </div>
+        `;
+        return;
+    }
+    
+    // Sort by most games played together
+    const sortedH2H = Object.entries(h2hStats).sort((a, b) => b[1].totalGames - a[1].totalGames);
+    
+    container.innerHTML = sortedH2H.map(([opponent, stats]) => {
+        const totalDecided = stats.wins + stats.losses;
+        const winRate = totalDecided > 0 ? ((stats.wins / totalDecided) * 100) : 50;
+        const lossRate = 100 - winRate;
+        
+        // Get opponent profile
+        const profile = getPlayerProfile(opponent);
+        const displayName = profile?.displayName || opponent;
+        const avatarUrl = profile?.avatarUrl;
+        const initial = displayName.charAt(0).toUpperCase();
+        
+        return `
+            <div class="h2h-item">
+                <div class="h2h-opponent">
+                    <div class="h2h-opponent-info">
+                        ${avatarUrl 
+                            ? `<div class="h2h-avatar has-image"><img src="${avatarUrl}" alt="${displayName}"></div>`
+                            : `<div class="h2h-avatar">${initial}</div>`
+                        }
+                        <span class="h2h-opponent-name">${displayName}</span>
+                    </div>
+                    <div class="h2h-record">
+                        <span class="h2h-wins">${stats.wins}</span>
+                        <span class="h2h-separator">-</span>
+                        <span class="h2h-losses">${stats.losses}</span>
+                    </div>
+                </div>
+                <div class="h2h-bar-container">
+                    <div class="h2h-bar">
+                        <div class="h2h-bar-wins" style="width: ${totalDecided > 0 ? winRate : 50}%"></div>
+                        <div class="h2h-bar-losses" style="width: ${totalDecided > 0 ? lossRate : 50}%"></div>
+                    </div>
+                    <span class="h2h-winrate">${totalDecided > 0 ? winRate.toFixed(0) : '--'}%</span>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
 // Initialize modal close on backdrop click
 document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('skill-modal');
@@ -1092,6 +1436,37 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    // Player stats modal close on backdrop click and tab switching
+    const playerStatsModal = document.getElementById('player-stats-modal');
+    if (playerStatsModal) {
+        playerStatsModal.addEventListener('click', (e) => {
+            if (e.target === playerStatsModal) {
+                closePlayerStatsModal();
+            }
+        });
+        
+        // Tab switching for player stats modal
+        const tabs = playerStatsModal.querySelectorAll('.player-stats-tab');
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetTab = tab.dataset.tab;
+                
+                // Update tab active states
+                tabs.forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update content visibility
+                const contents = playerStatsModal.querySelectorAll('.player-stats-content');
+                contents.forEach(content => content.classList.remove('active'));
+                
+                const targetContent = document.getElementById(`player-stats-${targetTab}`);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                }
+            });
+        });
+    }
 });
 
 // Export functions for use in app.js
@@ -1109,3 +1484,7 @@ window.sortPlayersWithTiebreakers = sortPlayersWithTiebreakers;
 window.comparePlayers = comparePlayers;
 window.openSkillsInfo = openSkillsInfo;
 window.closeSkillsInfo = closeSkillsInfo;
+window.openPlayerStatsModal = openPlayerStatsModal;
+window.closePlayerStatsModal = closePlayerStatsModal;
+window.fetchPlayerProfiles = fetchPlayerProfiles;
+window.getPlayerProfile = getPlayerProfile;

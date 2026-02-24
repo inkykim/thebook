@@ -418,14 +418,31 @@ function renderLeaderboard() {
         const rankClass = rank <= 3 ? `rank-${rank}` : '';
         const rankDisplay = rank === 1 ? 'I' : rank === 2 ? 'II' : rank === 3 ? 'III' : rank;
         
+        // Get player profile for avatar
+        const profile = typeof window.getPlayerProfile === 'function' ? window.getPlayerProfile(player) : null;
+        const avatarUrl = profile?.avatarUrl;
+        const initial = player.charAt(0).toUpperCase();
+        
+        const avatarHtml = avatarUrl
+            ? `<span class="player-avatar player-avatar-sm has-image"><img src="${avatarUrl}" alt="${player}" class="player-avatar-img"></span>`
+            : `<span class="player-avatar player-avatar-sm">${initial}</span>`;
+        
+        // Format streak as Wn or Ln with appropriate styling
+        let streakDisplay = '-';
+        let streakClass = '';
+        if (stats.currentStreak > 0 && stats.currentStreakType) {
+            streakDisplay = `${stats.currentStreakType}${stats.currentStreak}`;
+            streakClass = stats.currentStreakType === 'W' ? 'streak-win' : 'streak-loss';
+        }
+        
         return `
             <tr>
                 <td class="${rankClass}">${rankDisplay}</td>
-                <td><strong>${player}</strong></td>
+                <td class="leaderboard-player-cell">${avatarHtml}<strong>${player}</strong></td>
                 <td>${stats.wins}</td>
                 <td>${stats.gamesPlayed}</td>
                 <td>${winRate}</td>
-                <td>${stats.currentStreak > 0 ? stats.currentStreak : '-'}</td>
+                <td class="${streakClass}">${streakDisplay}</td>
             </tr>
         `;
     }).join('');

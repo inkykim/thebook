@@ -572,6 +572,15 @@ body {
 .rank-2 { color: var(--silver); font-weight: 700; }
 .rank-3 { color: var(--bronze); font-weight: 700; }
 
+.streak-win { color: var(--secondary); font-weight: 600; }
+.streak-loss { color: #a05050; font-weight: 600; }
+
+.leaderboard-player-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 /* Game History */
 .section-header {
     display: flex;
@@ -1280,6 +1289,24 @@ section:not(.hidden) {
     font-weight: 700;
     color: var(--background);
     text-transform: uppercase;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.player-avatar.has-image {
+    background: var(--surface-light);
+}
+
+.player-avatar-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.player-avatar-sm {
+    width: 28px;
+    height: 28px;
+    font-size: 0.85rem;
 }
 
 .player-card-name {
@@ -1674,6 +1701,505 @@ section:not(.hidden) {
     cursor: not-allowed;
 }
 
+/* Player Detailed Stats Modal */
+.player-stats-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 1001;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    backdrop-filter: blur(4px);
+}
+
+.player-stats-modal.active {
+    display: flex;
+}
+
+.player-stats-modal-content {
+    background: var(--surface);
+    border-radius: 8px;
+    max-width: 700px;
+    width: 100%;
+    max-height: 85vh;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+    display: flex;
+    flex-direction: column;
+}
+
+.player-stats-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 1.5rem 1rem;
+    background: linear-gradient(135deg, var(--surface-light) 0%, var(--surface) 100%);
+    border-bottom: 1px solid var(--border);
+}
+
+.player-stats-header-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.player-stats-header-text {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.player-stats-header-text h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+    margin: 0;
+    text-transform: capitalize;
+}
+
+.player-stats-modal-close {
+    background: none;
+    border: none;
+    font-size: 1.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.player-stats-modal-close:hover {
+    color: var(--text);
+}
+
+.player-stats-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+}
+
+/* Overview Stats Row */
+.player-stats-overview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.player-overview-stat {
+    background: var(--background);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.overview-stat-value {
+    display: block;
+    font-family: 'Cinzel', serif;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--gold);
+}
+
+.overview-stat-label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-top: 0.25rem;
+}
+
+/* Tab Navigation */
+.player-stats-tabs {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 1.5rem;
+    background: var(--background);
+    padding: 0.35rem;
+    border-radius: 6px;
+}
+
+.player-stats-tab {
+    flex: 1;
+    font-family: 'Cinzel', serif;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    padding: 0.65rem 1rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.03em;
+}
+
+.player-stats-tab:hover {
+    color: var(--text);
+}
+
+.player-stats-tab.active {
+    background: var(--primary);
+    color: var(--background);
+}
+
+/* Tab Content */
+.player-stats-content {
+    display: none;
+}
+
+.player-stats-content.active {
+    display: block;
+}
+
+/* Games Breakdown */
+.player-games-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.game-breakdown-item {
+    background: var(--background);
+    border-radius: 6px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.game-breakdown-item:hover {
+    transform: translateX(4px);
+    box-shadow: var(--shadow-sm);
+}
+
+.game-breakdown-thumbnail {
+    width: 50px;
+    height: 50px;
+    border-radius: 4px;
+    object-fit: cover;
+    flex-shrink: 0;
+    background: var(--surface);
+}
+
+.game-breakdown-thumbnail.placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+}
+
+.game-breakdown-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.game-breakdown-name {
+    font-family: 'Cinzel', serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 0.35rem;
+    text-transform: capitalize;
+}
+
+.game-breakdown-record {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+}
+
+.record-wins {
+    color: var(--secondary);
+    font-weight: 600;
+}
+
+.record-losses {
+    color: var(--text-muted);
+}
+
+.game-breakdown-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+}
+
+.game-breakdown-winrate {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--gold);
+}
+
+.game-breakdown-bar {
+    width: 80px;
+    height: 6px;
+    background: var(--surface-light);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.game-breakdown-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--secondary) 0%, var(--gold) 100%);
+    border-radius: 3px;
+    transition: width 0.4s ease-out;
+}
+
+/* Match History */
+.player-match-history {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.match-history-item {
+    background: var(--background);
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border-left: 3px solid var(--border);
+    transition: transform 0.2s;
+}
+
+.match-history-item:hover {
+    transform: translateX(4px);
+}
+
+.match-history-item.win {
+    border-left-color: var(--secondary);
+}
+
+.match-history-item.loss {
+    border-left-color: #6b3a3a;
+}
+
+.match-result-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.match-history-item.win .match-result-icon {
+    background: rgba(90, 110, 90, 0.3);
+    color: var(--secondary);
+}
+
+.match-history-item.loss .match-result-icon {
+    background: rgba(107, 58, 58, 0.3);
+    color: #a05050;
+}
+
+.match-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.match-game-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text);
+    text-transform: capitalize;
+    margin-bottom: 0.15rem;
+}
+
+.match-details {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.match-separator {
+    opacity: 0.4;
+}
+
+.match-date {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+}
+
+/* Head to Head Stats */
+.player-h2h-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.h2h-item {
+    background: var(--background);
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+.h2h-opponent {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.h2h-opponent-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.h2h-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--background);
+    text-transform: uppercase;
+}
+
+.h2h-avatar.has-image {
+    background: transparent;
+}
+
+.h2h-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.h2h-opponent-name {
+    font-family: 'Cinzel', serif;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    text-transform: capitalize;
+}
+
+.h2h-record {
+    font-family: 'Cinzel', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.h2h-wins {
+    color: var(--secondary);
+}
+
+.h2h-separator {
+    color: var(--text-muted);
+    margin: 0 0.15rem;
+}
+
+.h2h-losses {
+    color: #a05050;
+}
+
+.h2h-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.h2h-bar {
+    flex: 1;
+    height: 8px;
+    background: var(--surface-light);
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+}
+
+.h2h-bar-wins {
+    height: 100%;
+    background: var(--secondary);
+    transition: width 0.4s ease-out;
+}
+
+.h2h-bar-losses {
+    height: 100%;
+    background: #6b3a3a;
+    transition: width 0.4s ease-out;
+}
+
+.h2h-winrate {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--gold);
+    min-width: 40px;
+    text-align: right;
+}
+
+/* Make skill chart clickable */
+.player-skill-hexagon.clickable {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.player-skill-hexagon.clickable:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(139, 115, 85, 0.2);
+}
+
+.player-skill-hexagon.clickable h4::after {
+    content: 'Click for details';
+    display: block;
+    font-family: 'Crimson Text', Georgia, serif;
+    font-size: 0.7rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    text-transform: none;
+    letter-spacing: normal;
+    margin-top: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.player-skill-hexagon.clickable:hover h4::after {
+    opacity: 1;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+}
+
+.empty-state-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.5;
+}
+
+.empty-state-text {
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
 /* Responsive adjustments for skill modal */
 @media (max-width: 600px) {
     .skill-modal-body {
@@ -1707,5 +2233,29 @@ section:not(.hidden) {
     .library-tabs {
         width: 100%;
         justify-content: center;
+    }
+
+    .player-stats-overview {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .player-stats-tabs {
+        flex-wrap: wrap;
+    }
+
+    .player-stats-tab {
+        flex: 1 1 auto;
+        min-width: 80px;
+    }
+
+    .game-breakdown-item {
+        flex-wrap: wrap;
+    }
+
+    .game-breakdown-stats {
+        width: 100%;
+        flex-direction: row;
+        justify-content: space-between;
+        margin-top: 0.5rem;
     }
 }

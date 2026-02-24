@@ -366,6 +366,65 @@
         </div>
     </div>
 
+    <!-- Player Detailed Stats Modal -->
+    <div id="player-stats-modal" class="player-stats-modal">
+        <div class="player-stats-modal-content">
+            <div class="player-stats-modal-header">
+                <div class="player-stats-header-info">
+                    <div id="stats-modal-avatar" class="player-avatar player-avatar-lg"></div>
+                    <div class="player-stats-header-text">
+                        <h3 id="stats-modal-player-name"></h3>
+                    </div>
+                </div>
+                <button class="player-stats-modal-close" onclick="closePlayerStatsModal()">&times;</button>
+            </div>
+            
+            <div class="player-stats-modal-body">
+                <!-- Overview Stats -->
+                <div class="player-stats-overview">
+                    <div class="player-overview-stat">
+                        <span id="stats-modal-wins" class="overview-stat-value">0</span>
+                        <span class="overview-stat-label">Total Wins</span>
+                    </div>
+                    <div class="player-overview-stat">
+                        <span id="stats-modal-games" class="overview-stat-value">0</span>
+                        <span class="overview-stat-label">Games Played</span>
+                    </div>
+                    <div class="player-overview-stat">
+                        <span id="stats-modal-winrate" class="overview-stat-value">0%</span>
+                        <span class="overview-stat-label">Win Rate</span>
+                    </div>
+                    <div class="player-overview-stat">
+                        <span id="stats-modal-streak" class="overview-stat-value">0</span>
+                        <span class="overview-stat-label">Best Streak</span>
+                    </div>
+                </div>
+                
+                <!-- Tab Navigation -->
+                <div class="player-stats-tabs">
+                    <button class="player-stats-tab active" data-tab="by-game">By Game</button>
+                    <button class="player-stats-tab" data-tab="history">Match History</button>
+                    <button class="player-stats-tab" data-tab="rivals">Head to Head</button>
+                </div>
+                
+                <!-- By Game Tab -->
+                <div id="player-stats-by-game" class="player-stats-content active">
+                    <div id="player-games-breakdown" class="player-games-breakdown"></div>
+                </div>
+                
+                <!-- Match History Tab -->
+                <div id="player-stats-history" class="player-stats-content">
+                    <div id="player-match-history" class="player-match-history"></div>
+                </div>
+                
+                <!-- Head to Head Tab -->
+                <div id="player-stats-rivals" class="player-stats-content">
+                    <div id="player-h2h-stats" class="player-h2h-stats"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Configuration -->
     <script src="config.js"></script>
     

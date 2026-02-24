@@ -160,7 +160,7 @@ async function loadData() {
             console.log(`Loaded ${data.length} games`);
             processData(data);
             showSections();
-            renderAll();
+            await renderAll();
             // Refresh library if viewing it
             if (currentPage === 'library') {
                 refreshLibrary();
@@ -169,7 +169,7 @@ async function loadData() {
             console.log('No data found');
             showSections();
             processData([]);
-            renderAll();
+            await renderAll();
         }
         
         // Subscribe to realtime updates
@@ -231,7 +231,7 @@ async function loadDataWithoutResubscribe() {
         if (data) {
             processData(data);
             showSections();
-            renderAll();
+            await renderAll();
             refreshLibrary();
         }
     } catch (error) {
@@ -425,6 +425,7 @@ function calculatePlayerStats() {
             gamesPlayed_list: [],
             gamesWon: [],
             currentStreak: 0,
+            currentStreakType: null, // 'W' or 'L'
             longestStreak: 0,
             results: [] // Track win/loss sequence
         };
@@ -453,12 +454,25 @@ function calculatePlayerStats() {
             if (won) {
                 stats.wins++;
                 stats.gamesWon.push(game.gameName);
-                stats.currentStreak++;
+                // Track current streak
+                if (stats.currentStreakType === 'W') {
+                    stats.currentStreak++;
+                } else {
+                    stats.currentStreak = 1;
+                    stats.currentStreakType = 'W';
+                }
+                // Track longest winning streak
                 if (stats.currentStreak > stats.longestStreak) {
                     stats.longestStreak = stats.currentStreak;
                 }
             } else {
-                stats.currentStreak = 0;
+                // Track losing streak
+                if (stats.currentStreakType === 'L') {
+                    stats.currentStreak++;
+                } else {
+                    stats.currentStreak = 1;
+                    stats.currentStreakType = 'L';
+                }
             }
             
             // Per-game stats
@@ -487,7 +501,12 @@ function showSections() {
 /**
  * Render all visualizations (calls page-specific render functions)
  */
-function renderAll() {
+async function renderAll() {
+    // Fetch player profiles for avatars
+    if (typeof fetchPlayerProfiles === 'function') {
+        await fetchPlayerProfiles();
+    }
+    
     if (typeof renderStats === 'function') renderStats();
     if (typeof renderAwards === 'function') renderAwards();
     if (typeof renderCharts === 'function') renderCharts();
