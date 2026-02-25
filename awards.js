@@ -198,15 +198,34 @@ const AWARDS = [
         iconPath: 'icons/crowned-skull.svg',
         description: 'Currently on the longest active winning streak',
         calculate: (data) => {
-            const { playerStats } = data;
+            const { games, players } = data;
+            const currentWinStreaks = {};
+            
+            players.forEach(player => {
+                let currentStreak = 0;
+                
+                games.forEach(game => {
+                    if (game.players && game.players.includes(player)) {
+                        const won = game.winners ? game.winners.includes(player) : game.winner === player;
+                        if (won) {
+                            currentStreak++;
+                        } else {
+                            currentStreak = 0;
+                        }
+                    }
+                });
+                
+                currentWinStreaks[player] = currentStreak;
+            });
+            
             let maxStreak = 0;
             let winners = [];
             
-            for (const [player, stats] of Object.entries(playerStats)) {
-                if (stats.currentStreak > maxStreak) {
-                    maxStreak = stats.currentStreak;
+            for (const [player, streak] of Object.entries(currentWinStreaks)) {
+                if (streak > maxStreak) {
+                    maxStreak = streak;
                     winners = [player];
-                } else if (stats.currentStreak === maxStreak && maxStreak > 0) {
+                } else if (streak === maxStreak && maxStreak > 0) {
                     winners.push(player);
                 }
             }
